@@ -1,16 +1,14 @@
 {
   "currency": "USD",
-  "banner_text": "🔥 Limited Time Offer: 7-Day Free Trial Included",
+  "banner_text": "🔥 Limited Time: 75% Cheaper than Cal AI",
   "monthly": {
-    "enabled": true,
-    "price_id": "calsnap_399_1m",
+    "price_id": "calsnap_monthly",
     "display_price": "$3.99",
     "period": "/month",
     "trial_days": 7
   },
   "annual": {
-    "enabled": true,
-    "price_id": "calsnap_2999_1y",
+    "price_id": "calsnap_yearly",
     "display_price": "$29.99",
     "period": "/year",
     "monthly_equivalent": "$2.49/mo",
@@ -23,6 +21,6 @@
     "Weekly Calorie Banking (No Guilt Flex Days)",
     "Interactive Oil & Sauce Calorie Sliders",
     "Glucose Impact & Energy Crash Predictor",
-    "Export PDF Health Reports for Doctors & Coaches"
+    "Export PDF Health Reports for Doctors/Coaches"
   ]
 }
