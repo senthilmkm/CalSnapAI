@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Alert, Platform, Linking } from 'react-native';
-import { X, Check, Zap, ShieldCheck, Sparkles, RefreshCw } from 'lucide-react-native';
+import { X, Check, Zap, ShieldCheck, Sparkles, RefreshCw, Flame, Sliders, FileText, Calendar } from 'lucide-react-native';
 import Purchases, { PurchasesPackage } from 'react-native-purchases';
 import { useAppStore } from '../services/storage';
 
@@ -118,7 +118,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
           <View style={styles.badgeRow}>
             <View style={styles.badge}>
               <Sparkles size={14} color="#6366F1" />
-              <Text style={styles.badgeText}>🔥 75% CHEAPER THAN CAL AI</Text>
+              <Text style={styles.badgeText}>🔥 SPECIAL LAUNCH OFFER</Text>
             </View>
           </View>
 
@@ -127,44 +127,46 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
             Zero-friction food logging, weekly calorie banking, and interactive oil sliders.
           </Text>
 
-          {/* Comparison Card vs Cal AI */}
-          <View style={styles.comparisonCard}>
-            <Text style={styles.comparisonTitle}>Why Switch to CalSnap AI?</Text>
-
-            <View style={styles.tableHeader}>
-              <Text style={[styles.colHeader, { flex: 2 }]}>Feature</Text>
-              <Text style={[styles.colHeader, { flex: 1, textAlign: 'center', color: '#94A3B8' }]}>Cal AI</Text>
-              <Text style={[styles.colHeader, { flex: 1, textAlign: 'center', color: '#4F46E5' }]}>CalSnap AI</Text>
+          {/* Premium Feature Highlights */}
+          <View style={styles.featuresCard}>
+            <View style={styles.featureItem}>
+              <View style={styles.featureIconBox}>
+                <Flame size={18} color="#4F46E5" />
+              </View>
+              <View style={styles.featureTextBox}>
+                <Text style={styles.featureTitle}>Unlimited AI Food Photo Snaps</Text>
+                <Text style={styles.featureSub}>Instant zero-shot calorie & macro recognition</Text>
+              </View>
             </View>
 
-            <View style={styles.tableRow}>
-              <Text style={[styles.cellText, { flex: 2 }]}>Monthly Price</Text>
-              <Text style={[styles.cellText, { flex: 1, textAlign: 'center', color: '#EF4444' }]}>$14.99</Text>
-              <Text style={[styles.cellText, { flex: 1, textAlign: 'center', color: '#10B981', fontWeight: 'bold' }]}>$3.99</Text>
+            <View style={styles.featureItem}>
+              <View style={styles.featureIconBox}>
+                <Calendar size={18} color="#10B981" />
+              </View>
+              <View style={styles.featureTextBox}>
+                <Text style={styles.featureTitle}>Weekly Calorie Banking</Text>
+                <Text style={styles.featureSub}>Save flex calories for guilt-free weekend dining</Text>
+              </View>
             </View>
 
-            <View style={styles.tableRow}>
-              <Text style={[styles.cellText, { flex: 2 }]}>Weekly Calorie Banking</Text>
-              <Text style={[styles.cellText, { flex: 1, textAlign: 'center', color: '#94A3B8' }]}>❌ No</Text>
-              <Text style={[styles.cellText, { flex: 1, textAlign: 'center', color: '#10B981' }]}>✅ Yes</Text>
+            <View style={styles.featureItem}>
+              <View style={styles.featureIconBox}>
+                <Sliders size={18} color="#F59E0B" />
+              </View>
+              <View style={styles.featureTextBox}>
+                <Text style={styles.featureTitle}>Live Oil & Portion Scale Sliders</Text>
+                <Text style={styles.featureSub}>Account for hidden cooking fats in 1 swipe</Text>
+              </View>
             </View>
 
-            <View style={styles.tableRow}>
-              <Text style={[styles.cellText, { flex: 2 }]}>Live Oil & Portion Sliders</Text>
-              <Text style={[styles.cellText, { flex: 1, textAlign: 'center', color: '#94A3B8' }]}>❌ No</Text>
-              <Text style={[styles.cellText, { flex: 1, textAlign: 'center', color: '#10B981' }]}>✅ Yes</Text>
-            </View>
-
-            <View style={styles.tableRow}>
-              <Text style={[styles.cellText, { flex: 2 }]}>Voice + Snap 1-Tap Log</Text>
-              <Text style={[styles.cellText, { flex: 1, textAlign: 'center', color: '#94A3B8' }]}>❌ No</Text>
-              <Text style={[styles.cellText, { flex: 1, textAlign: 'center', color: '#10B981' }]}>✅ Yes</Text>
-            </View>
-
-            <View style={styles.tableRow}>
-              <Text style={[styles.cellText, { flex: 2 }]}>PDF Health Export</Text>
-              <Text style={[styles.cellText, { flex: 1, textAlign: 'center', color: '#94A3B8' }]}>❌ No</Text>
-              <Text style={[styles.cellText, { flex: 1, textAlign: 'center', color: '#10B981' }]}>✅ Yes</Text>
+            <View style={styles.featureItem}>
+              <View style={styles.featureIconBox}>
+                <FileText size={18} color="#6366F1" />
+              </View>
+              <View style={styles.featureTextBox}>
+                <Text style={styles.featureTitle}>Export PDF & CSV Health Reports</Text>
+                <Text style={styles.featureSub}>Share formal summaries with doctors & coaches</Text>
+              </View>
             </View>
           </View>
 
@@ -177,7 +179,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
               activeOpacity={0.9}
             >
               <View style={styles.savingsTag}>
-                <Text style={styles.savingsTagText}>SAVE 40% (RECOMMENDED)</Text>
+                <Text style={styles.savingsTagText}>SAVE 40% (BEST VALUE)</Text>
               </View>
 
               <View style={styles.planHeader}>
@@ -311,43 +313,43 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     paddingHorizontal: 10,
   },
-  comparisonCard: {
+  featuresCard: {
     width: '100%',
     backgroundColor: '#F8FAFC',
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 16,
     marginBottom: 20,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    gap: 14,
   },
-  comparisonTitle: {
-    fontSize: 15,
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  featureIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  featureTextBox: {
+    flex: 1,
+  },
+  featureTitle: {
+    fontSize: 14,
     fontWeight: '800',
     color: '#0F172A',
-    marginBottom: 12,
-    textAlign: 'center',
   },
-  tableHeader: {
-    flexDirection: 'row',
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 8,
-  },
-  colHeader: {
+  featureSub: {
     fontSize: 12,
-    fontWeight: '700',
-  },
-  tableRow: {
-    flexDirection: 'row',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderColor: '#F1F5F9',
-  },
-  cellText: {
-    fontSize: 13,
-    color: '#334155',
-    fontWeight: '500',
+    color: '#64748B',
+    marginTop: 1,
   },
   plansContainer: {
     width: '100%',
