@@ -8,7 +8,7 @@ module.exports = ({ config }) => {
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
-    scheme: "calsnapai",
+    scheme: "calsnap",
     userInterfaceStyle: "automatic",
     splash: {
       image: "./assets/images/splash-icon.png",
@@ -40,24 +40,16 @@ module.exports = ({ config }) => {
     },
     plugins: [
       "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          image: "./assets/images/splash-icon.png",
-          resizeMode: "contain",
-          backgroundColor: "#ffffff"
-        }
-      ],
-      "expo-image",
       "expo-image-picker",
-      "expo-notifications",
-      "expo-sharing"
+      "expo-notifications"
     ],
     experiments: {
       typedRoutes: true
     },
     extra: {
-      ...config.extra,
+      eas: {
+        projectId: "calsnap-ai-production"
+      }
     }
   };
 };
