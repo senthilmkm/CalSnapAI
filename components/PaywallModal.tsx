@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Alert, Platform } from 'react-native';
-import { X, Check, Zap, ShieldCheck, Sparkles } from 'lucide-react-native';
+import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Alert, Platform, Linking } from 'react-native';
+import { X, Check, Zap, ShieldCheck, Sparkles, RefreshCw } from 'lucide-react-native';
 import Purchases, { PurchasesPackage } from 'react-native-purchases';
 import { useAppStore } from '../services/storage';
 
@@ -9,9 +9,13 @@ interface PaywallModalProps {
   onClose: () => void;
 }
 
+const PRIVACY_URL = 'https://senthilmkm.github.io/CalSnapAI/privacy.html';
+const TERMS_URL = 'https://senthilmkm.github.io/CalSnapAI/support.html';
+
 export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) => {
   const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>('annual');
   const [loading, setLoading] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [packages, setPackages] = useState<{ monthly?: PurchasesPackage; annual?: PurchasesPackage }>({});
 
   const signInWithApple = useAppStore((state) => state.signInWithApple);
@@ -65,6 +69,39 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRestorePurchases = async () => {
+    setRestoring(true);
+    try {
+      if (Platform.OS === 'ios') {
+        const customerInfo = await Purchases.restorePurchases();
+        if (typeof customerInfo.entitlements.active['pro_access'] !== 'undefined') {
+          setProfile({ is_pro_subscriber: true });
+          Alert.alert('Purchases Restored', 'Your CalSnap Pro access has been restored!');
+          onClose();
+          return;
+        }
+      }
+      Alert.alert('No Purchases Found', 'We could not find an active subscription for this Apple ID.');
+    } catch (e: any) {
+      Alert.alert('Restore Failed', e.message || 'Unable to restore purchases at this time.');
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  const openURL = async (url: string) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Link Error', `Unable to open ${url}`);
+      }
+    } catch (e) {
+      Alert.alert('Link Error', 'Unable to open browser.');
     }
   };
 
@@ -193,6 +230,32 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
           <View style={styles.guaranteeRow}>
             <ShieldCheck size={16} color="#10B981" />
             <Text style={styles.guaranteeText}>No commitment. Cancel anytime in 1 tap.</Text>
+          </View>
+
+          {/* Mandatory Apple Subscription Legal Footer (Guideline 3.1.2) */}
+          <View style={styles.legalFooter}>
+            <TouchableOpacity onPress={handleRestorePurchases} disabled={restoring} style={styles.legalLinkBtn}>
+              {restoring ? (
+                <ActivityIndicator size="small" color="#4F46E5" />
+              ) : (
+                <>
+                  <RefreshCw size={13} color="#4F46E5" style={{ marginRight: 4 }} />
+                  <Text style={styles.legalRestoreText}>Restore Purchases</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <Text style={styles.legalDivider}>•</Text>
+
+            <TouchableOpacity onPress={() => openURL(PRIVACY_URL)} style={styles.legalLinkBtn}>
+              <Text style={styles.legalLinkText}>Privacy Policy</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.legalDivider}>•</Text>
+
+            <TouchableOpacity onPress={() => openURL(TERMS_URL)} style={styles.legalLinkBtn}>
+              <Text style={styles.legalLinkText}>Terms of Use</Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </View>
@@ -374,11 +437,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 14,
+    marginBottom: 20,
     gap: 6,
   },
   guaranteeText: {
     fontSize: 12,
     color: '#64748B',
     fontWeight: '500',
+  },
+  legalFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 10,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderColor: '#F1F5F9',
+    width: '100%',
+  },
+  legalLinkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  legalRestoreText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#4F46E5',
+  },
+  legalLinkText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  legalDivider: {
+    fontSize: 13,
+    color: '#CBD5E1',
   },
 });
