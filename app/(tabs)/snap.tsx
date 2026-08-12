@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Image, ScrollView, ActivityIndicator } from 'react-native';
-import { Camera, Image as ImageIcon, Mic, Zap, Sparkles, AlertCircle, Scan } from 'lucide-react-native';
+import { Camera, Image as ImageIcon, Mic, Zap, Sparkles, AlertCircle } from 'lucide-react-native';
+import { useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../../services/storage';
@@ -31,6 +32,15 @@ export default function SnapScreen() {
   const todaySnapsCount = getTodayMeals().length;
   const isFreeTier = !profile.is_pro_subscriber;
   const snapsRemaining = Math.max(0, FREE_DAILY_SNAP_LIMIT - todaySnapsCount);
+
+  // Reset viewport state when user returns/taps the Snap tab
+  useFocusEffect(
+    useCallback(() => {
+      setSelectedImage(null);
+      setCurrentMealId(null);
+      setVoiceNote('');
+    }, [])
+  );
 
   // Paywall Gate Verification
   const verifyPaywallGate = (): boolean => {
