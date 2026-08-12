@@ -48,7 +48,7 @@ module.exports = ({ config }) => {
     },
     extra: {
       eas: {
-        projectId: "calsnap-ai-production"
+        projectId: "60d1b197-be5d-420a-8963-ef7ca0157e9e"
       }
     }
   };
