@@ -14,14 +14,25 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.senthilkannan.calsnapai"
+      "bundleIdentifier": "com.senthilkannan.calsnapai",
+      "buildNumber": "144",
+      "infoPlist": {
+        "NSCameraUsageDescription": "CalSnap AI needs camera access to identify food items and estimate calories instantly.",
+        "NSMicrophoneUsageDescription": "CalSnap AI needs microphone access to record quick voice notes about your meal.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#ffffff",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "package": "com.senthilkannan.calsnapai"
+      "package": "com.senthilkannan.calsnapai",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -40,6 +51,12 @@
       "eas": {
         "projectId": "60d1b197-be5d-420a-8963-ef7ca0157e9e"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/60d1b197-be5d-420a-8963-ef7ca0157e9e"
     }
   }
 }

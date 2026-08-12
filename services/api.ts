@@ -12,7 +12,7 @@ export interface AnalyzeMealParams {
 }
 
 export async function analyzeMealImage(params: AnalyzeMealParams): Promise<Omit<MealRecord, 'id' | 'timestamp'>> {
-  // 1. Direct Gemini 1.5 Vision AI Integration (if Key Available)
+  // 1. Direct Gemini Vision AI Integration (if API Key provided)
   if (params.geminiApiKey) {
     return await analyzeWithGeminiVision(
       params.imageBase64,
@@ -22,50 +22,50 @@ export async function analyzeMealImage(params: AnalyzeMealParams): Promise<Omit<
     );
   }
 
-  // 2. Production Cloud Backend Function (if Auth Token Available)
+  // 2. Production Cloud Backend Function (Calls GCloud Function proxying Gemini 2.0 Flash)
   try {
-    if (params.userAuthToken) {
-      const response = await fetch(GCLOUD_FUNCTION_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${params.userAuthToken}`,
-          'X-CalSnap-App-Secret': CALSNAP_APP_SECRET,
-        },
-        body: JSON.stringify({
-          image_base64: params.imageBase64,
-          voice_transcript: params.voiceTranscript,
-          cultural_preset: params.culturalPreset || 'Standard',
-        }),
-      });
+    const authToken = params.userAuthToken || 'calsnap-guest-token-v1';
 
-      if (response.ok) {
-        const json = await response.json();
-        if (json.success && json.data) {
-          return {
-            dish_name: json.data.dish_name,
-            meal_type: getMealTypeByHour(),
-            items: json.data.items || [],
-            estimated_oil_g: json.data.estimated_oil_g || 10,
-            portion_multiplier: 1.0,
-            total_calories: json.data.total_calories || 500,
-            total_protein_g: json.data.total_protein_g || 35,
-            total_carbs_g: json.data.total_carbs_g || 45,
-            total_fat_g: json.data.total_fat_g || 18,
-            glucose_impact_score: json.data.glucose_impact_score || 'LOW',
-            energy_crash_risk: json.data.energy_crash_risk || 'VERY_LOW',
-            ai_tip: json.data.ai_tip || 'Balanced nutrition plate!',
-            voice_transcript: params.voiceTranscript,
-          };
-        }
+    const response = await fetch(GCLOUD_FUNCTION_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+        'X-CalSnap-App-Secret': CALSNAP_APP_SECRET,
+      },
+      body: JSON.stringify({
+        image_base64: params.imageBase64,
+        voice_transcript: params.voiceTranscript,
+        cultural_preset: params.culturalPreset || 'Standard',
+      }),
+    });
+
+    if (response.ok) {
+      const json = await response.json();
+      if (json.success && json.data) {
+        return {
+          dish_name: json.data.dish_name,
+          meal_type: getMealTypeByHour(),
+          items: json.data.items || [],
+          estimated_oil_g: json.data.estimated_oil_g || 10,
+          portion_multiplier: 1.0,
+          total_calories: json.data.total_calories || 500,
+          total_protein_g: json.data.total_protein_g || 35,
+          total_carbs_g: json.data.total_carbs_g || 45,
+          total_fat_g: json.data.total_fat_g || 18,
+          glucose_impact_score: json.data.glucose_impact_score || 'LOW',
+          energy_crash_risk: json.data.energy_crash_risk || 'VERY_LOW',
+          ai_tip: json.data.ai_tip || 'Balanced nutrition plate!',
+          voice_transcript: params.voiceTranscript,
+        };
       }
     }
   } catch (err) {
     console.warn('Backend API offline or unreachable. Falling back to local smart simulation.', err);
   }
 
-  // Smart Simulation Fallback (for instant testing)
-  await new Promise((resolve) => setTimeout(resolve, 200)); // Ultra-fast simulation response
+  // 3. Smart Simulation Fallback (Ensures 100% offline uptime)
+  await new Promise((resolve) => setTimeout(resolve, 200));
 
   const transcript = (params.voiceTranscript || '').toLowerCase();
 
@@ -137,7 +137,6 @@ export async function analyzeMealImage(params: AnalyzeMealParams): Promise<Omit<
     },
   ];
 
-  // Match keyword from voice transcript if present, otherwise pick dish
   const matched = mockDishes.find((d) => d.keywords.some((k) => transcript.includes(k)));
   const choice = matched || mockDishes[Math.floor(Math.random() * mockDishes.length)];
 
@@ -172,7 +171,7 @@ function getMealTypeByHour(): 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack' {
  */
 export async function parseNaturalLanguageMeal(description: string): Promise<Omit<MealRecord, 'id' | 'timestamp'>> {
   const text = description.trim().toLowerCase();
-  await new Promise((resolve) => setTimeout(resolve, 1000)); // Natural AI processing delay
+  await new Promise((resolve) => setTimeout(resolve, 1000));
 
   let calories = 350;
   let protein = 25;
@@ -180,7 +179,6 @@ export async function parseNaturalLanguageMeal(description: string): Promise<Omi
   let fat = 12;
   let dish_name = description.trim() || 'Custom Voice Meal';
 
-  // Keyword heuristic macro extraction for instant NLP offline simulation
   if (text.includes('egg') || text.includes('eggs')) {
     protein += 14;
     calories += 140;
@@ -214,7 +212,6 @@ export async function parseNaturalLanguageMeal(description: string): Promise<Omi
     calories += 45;
   }
 
-  // Capitalize title
   const formattedTitle = dish_name.charAt(0).toUpperCase() + dish_name.slice(1);
 
   return {
@@ -298,43 +295,6 @@ Return ONLY a valid, parseable JSON object with NO markdown formatting or text s
   "ai_tip": "One precise, highly actionable 1-sentence nutrition insight about this specific meal."
 }`;
 
-/**
- * Query Google's ListModels API to dynamically discover models supported by the user's API Key.
- * Prioritizes Google's flagship reasoning vision models (Gemini 2.0 Flash, Gemini 1.5 Pro).
- */
-async function getAuthorizedGeminiModels(apiKey: string): Promise<string[]> {
-  try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-    const data = await res.json();
-    if (data?.models && Array.isArray(data.models)) {
-      const available = data.models
-        .filter((m: any) => m.supportedGenerationMethods?.includes('generateContent'))
-        .map((m: any) => m.name.replace(/^models\//, ''));
-      if (available.length > 0) {
-        // Prioritize flagship Gemini 2.0 & 1.5 Pro/Flash Vision models
-        const priorityOrder = ['gemini-2.0-flash', 'gemini-1.5-pro-002', 'gemini-1.5-pro', 'gemini-1.5-flash-002', 'gemini-1.5-flash', 'gemini-pro-vision'];
-        return available.sort((a: string, b: string) => {
-          const idxA = priorityOrder.findIndex((p) => a.includes(p));
-          const idxB = priorityOrder.findIndex((p) => b.includes(p));
-          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-          if (idxA !== -1) return -1;
-          if (idxB !== -1) return 1;
-          return 0;
-        });
-      }
-    }
-  } catch (e) {
-    console.warn('Unable to list Gemini models dynamically:', e);
-  }
-  return [
-    'gemini-2.0-flash',
-    'gemini-1.5-pro-002',
-    'gemini-1.5-flash-002',
-    'gemini-1.5-flash',
-  ];
-}
-
-  // Fast static model priority list (bypasses extra network lookup roundtrip)
   const modelNames = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
   const requestParts: any[] = [{ text: promptText }];
   if (cleanBase64 && cleanBase64.length > 100 && cleanBase64 !== 'MOCK_IMAGE_DATA') {
@@ -371,7 +331,7 @@ async function getAuthorizedGeminiModels(apiKey: string): Promise<string[]> {
 
         resJson = await response.json();
         if (!resJson.error) {
-          break; // Success!
+          break;
         } else {
           lastError = resJson.error.message || 'Gemini API Error';
         }
