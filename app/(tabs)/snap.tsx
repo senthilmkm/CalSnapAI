@@ -1,11 +1,11 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Image, ScrollView, ActivityIndicator } from 'react-native';
-import { Camera, Image as ImageIcon, Mic, Zap, Sparkles, AlertCircle, XCircle } from 'lucide-react-native';
+import { Camera, Image as ImageIcon, Mic, Zap, Sparkles, AlertCircle, XCircle, HelpCircle, Info } from 'lucide-react-native';
 import { useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../../services/storage';
-import { analyzeMealImage } from '../../services/api';
+import { analyzeMealImage, parseNaturalLanguageMeal } from '../../services/api';
 import { OilSlider } from '../../components/OilSlider';
 import { PortionSlider } from '../../components/PortionSlider';
 import { PaywallModal } from '../../components/PaywallModal';
@@ -165,8 +165,8 @@ export default function SnapScreen() {
     }
 
     Alert.alert(
-      '🎙️ Add Meal Detail (Optional)',
-      'Describe preparation method, extra oils, or portion eaten to boost AI accuracy.',
+      '🎙️ Add Meal Details',
+      'You can add voice/text details BEFORE or AFTER taking a photo (e.g. "cooked in ghee", "ate half portion").',
       [
         {
           text: '🎙️ Record Voice Note',
@@ -184,7 +184,7 @@ export default function SnapScreen() {
           onPress: () => {
             Alert.prompt(
               'Meal Note',
-              'Enter details (e.g. "cooked in ghee, half portion"):',
+              'Enter details (e.g. "cooked in 2 tbsp ghee, ate half portion"):',
               (text) => {
                 if (text) {
                   setVoiceNote(text);
@@ -220,6 +220,19 @@ export default function SnapScreen() {
           <Text style={styles.gateBannerText}>Daily free limit reached. Tap to upgrade to Pro Unlimited!</Text>
         </TouchableOpacity>
       )}
+
+      {/* Crystal Clear Guided Step Indicator */}
+      <View style={styles.stepGuideBar}>
+        <View style={styles.stepItem}>
+          <View style={styles.stepCircle}><Text style={styles.stepNum}>1</Text></View>
+          <Text style={styles.stepLabel}>Snap Food Photo</Text>
+        </View>
+        <View style={styles.stepLine} />
+        <View style={styles.stepItem}>
+          <View style={[styles.stepCircle, styles.stepCircleOptional]}><Text style={styles.stepNumOptional}>2</Text></View>
+          <Text style={styles.stepLabel}>Add Note / Sliders</Text>
+        </View>
+      </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Main Camera Viewfinder Target Box */}
@@ -264,7 +277,7 @@ export default function SnapScreen() {
               ? '🎙️ Recording note... (3s)'
               : voiceNote
               ? `Attached Note: "${voiceNote}" (Tap to clear)`
-              : 'Add Voice/Text Note (Optional)'}
+              : '🎙️ Add Voice/Text Note (Before or after photo)'}
           </Text>
           {!!voiceNote && <XCircle size={18} color="#047857" />}
         </TouchableOpacity>
@@ -335,7 +348,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    marginBottom: 10,
+    marginBottom: 6,
   },
   screenTitle: {
     fontSize: 26,
@@ -374,19 +387,69 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     flex: 1,
   },
+  stepGuideBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
+    marginBottom: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 8,
+  },
+  stepItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  stepCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#4F46E5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepCircleOptional: {
+    backgroundColor: '#64748B',
+  },
+  stepNum: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  stepNumOptional: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  stepLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  stepLine: {
+    width: 20,
+    height: 2,
+    backgroundColor: '#CBD5E1',
+  },
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 100,
   },
   cameraBox: {
     width: '100%',
-    height: 270,
+    height: 260,
     borderRadius: 24,
     backgroundColor: '#0F172A',
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: '#334155',
   },
@@ -573,7 +636,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     color: '#0F172A',
-    flex: 1, // Allow long titles to wrap gracefully without clipping!
+    flex: 1,
   },
   dishCalsBadge: {
     backgroundColor: '#EEF2FF',
