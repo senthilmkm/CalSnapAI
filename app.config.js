@@ -1,5 +1,5 @@
 module.exports = ({ config }) => {
-  const buildNumber = process.env.EAS_BUILD_RUN_NUMBER || "142";
+  const buildNumber = process.env.EAS_BUILD_RUN_NUMBER || "144";
 
   return {
     ...config,
@@ -21,7 +21,8 @@ module.exports = ({ config }) => {
       buildNumber: buildNumber,
       infoPlist: {
         NSCameraUsageDescription: "CalSnap AI needs camera access to identify food items and estimate calories instantly.",
-        NSMicrophoneUsageDescription: "CalSnap AI needs microphone access to record quick voice notes about your meal."
+        NSMicrophoneUsageDescription: "CalSnap AI needs microphone access to record quick voice notes about your meal.",
+        ITSAppUsesNonExemptEncryption: false
       }
     },
     android: {
