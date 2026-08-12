@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Alert, Platform } from 'react-native';
 import { X, Check, Zap, ShieldCheck, Sparkles } from 'lucide-react-native';
+import Purchases, { PurchasesPackage } from 'react-native-purchases';
 import { useAppStore } from '../services/storage';
-import pricingConfig from '../config/pricing.json';
 
 interface PaywallModalProps {
   visible: boolean;
@@ -10,18 +10,63 @@ interface PaywallModalProps {
 }
 
 export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) => {
-  const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>(
-    pricingConfig.annual?.enabled ? 'annual' : 'monthly'
-  );
-  const signInWithApple = useAppStore((state) => state.signInWithApple);
+  const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>('annual');
+  const [loading, setLoading] = useState(false);
+  const [packages, setPackages] = useState<{ monthly?: PurchasesPackage; annual?: PurchasesPackage }>({});
 
-  const handleStartTrial = () => {
-    signInWithApple('pro.user@apple.com');
-    onClose();
+  const signInWithApple = useAppStore((state) => state.signInWithApple);
+  const setProfile = useAppStore((state) => state.setProfile);
+
+  // Fetch Offerings from RevenueCat
+  useEffect(() => {
+    if (visible && Platform.OS === 'ios') {
+      fetchOfferings();
+    }
+  }, [visible]);
+
+  const fetchOfferings = async () => {
+    try {
+      const offerings = await Purchases.getOfferings();
+      if (offerings.current !== null) {
+        setPackages({
+          monthly: offerings.current.monthly || undefined,
+          annual: offerings.current.annual || undefined,
+        });
+      }
+    } catch (e) {
+      console.warn('RevenueCat fetchOfferings warning:', e);
+    }
   };
 
-  const isAnnualEnabled = pricingConfig.annual?.enabled ?? true;
-  const isMonthlyEnabled = pricingConfig.monthly?.enabled ?? true;
+  const handleStartTrial = async () => {
+    setLoading(true);
+
+    try {
+      if (Platform.OS === 'ios') {
+        const pkgToPurchase = selectedPlan === 'annual' ? packages.annual : packages.monthly;
+        if (pkgToPurchase) {
+          const { customerInfo } = await Purchases.purchasePackage(pkgToPurchase);
+          if (typeof customerInfo.entitlements.active['pro_access'] !== 'undefined') {
+            setProfile({ is_pro_subscriber: true, is_guest: false });
+            Alert.alert('🎉 Welcome to CalSnap AI Pro!', 'Your 7-Day Free Trial is now active.');
+            onClose();
+            return;
+          }
+        }
+      }
+      
+      // Fallback / Demo Activation
+      signInWithApple('pro.subscriber@apple.com');
+      Alert.alert('🎉 Welcome to CalSnap AI Pro!', 'Your Pro subscription is now active.');
+      onClose();
+    } catch (e: any) {
+      if (!e.userCancelled) {
+        Alert.alert('Purchase Note', e.message || 'Unable to complete checkout. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
@@ -32,89 +77,117 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
         </TouchableOpacity>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Dynamic Header Badge from pricing.json */}
+          {/* Header Badge */}
           <View style={styles.badgeRow}>
             <View style={styles.badge}>
               <Sparkles size={14} color="#6366F1" />
-              <Text style={styles.badgeText}>{pricingConfig.banner_text}</Text>
+              <Text style={styles.badgeText}>🔥 75% CHEAPER THAN CAL AI</Text>
             </View>
           </View>
 
           <Text style={styles.headline}>Unlock CalSnap AI Pro</Text>
           <Text style={styles.subheadline}>
-            Zero-friction food logging, weekly calorie banking, and interactive portion sliders.
+            Zero-friction food logging, weekly calorie banking, and interactive oil sliders.
           </Text>
 
-          {/* Pro Feature Checklist (Dynamic from pricing.json) */}
-          <View style={styles.featuresCard}>
-            <Text style={styles.featuresTitle}>What's Included in Pro:</Text>
-            {pricingConfig.paywall_features.map((feat, idx) => (
-              <View key={idx} style={styles.featureRow}>
-                <View style={styles.checkIconWrapper}>
-                  <Check size={14} color="#10B981" />
-                </View>
-                <Text style={styles.featureText}>{feat}</Text>
-              </View>
-            ))}
+          {/* Comparison Card vs Cal AI */}
+          <View style={styles.comparisonCard}>
+            <Text style={styles.comparisonTitle}>Why Switch to CalSnap AI?</Text>
+
+            <View style={styles.tableHeader}>
+              <Text style={[styles.colHeader, { flex: 2 }]}>Feature</Text>
+              <Text style={[styles.colHeader, { flex: 1, textAlign: 'center', color: '#94A3B8' }]}>Cal AI</Text>
+              <Text style={[styles.colHeader, { flex: 1, textAlign: 'center', color: '#4F46E5' }]}>CalSnap AI</Text>
+            </View>
+
+            <View style={styles.tableRow}>
+              <Text style={[styles.cellText, { flex: 2 }]}>Monthly Price</Text>
+              <Text style={[styles.cellText, { flex: 1, textAlign: 'center', color: '#EF4444' }]}>$14.99</Text>
+              <Text style={[styles.cellText, { flex: 1, textAlign: 'center', color: '#10B981', fontWeight: 'bold' }]}>$3.99</Text>
+            </View>
+
+            <View style={styles.tableRow}>
+              <Text style={[styles.cellText, { flex: 2 }]}>Weekly Calorie Banking</Text>
+              <Text style={[styles.cellText, { flex: 1, textAlign: 'center', color: '#94A3B8' }]}>❌ No</Text>
+              <Text style={[styles.cellText, { flex: 1, textAlign: 'center', color: '#10B981' }]}>✅ Yes</Text>
+            </View>
+
+            <View style={styles.tableRow}>
+              <Text style={[styles.cellText, { flex: 2 }]}>Live Oil & Portion Sliders</Text>
+              <Text style={[styles.cellText, { flex: 1, textAlign: 'center', color: '#94A3B8' }]}>❌ No</Text>
+              <Text style={[styles.cellText, { flex: 1, textAlign: 'center', color: '#10B981' }]}>✅ Yes</Text>
+            </View>
+
+            <View style={styles.tableRow}>
+              <Text style={[styles.cellText, { flex: 2 }]}>Voice + Snap 1-Tap Log</Text>
+              <Text style={[styles.cellText, { flex: 1, textAlign: 'center', color: '#94A3B8' }]}>❌ No</Text>
+              <Text style={[styles.cellText, { flex: 1, textAlign: 'center', color: '#10B981' }]}>✅ Yes</Text>
+            </View>
+
+            <View style={styles.tableRow}>
+              <Text style={[styles.cellText, { flex: 2 }]}>PDF Health Export</Text>
+              <Text style={[styles.cellText, { flex: 1, textAlign: 'center', color: '#94A3B8' }]}>❌ No</Text>
+              <Text style={[styles.cellText, { flex: 1, textAlign: 'center', color: '#10B981' }]}>✅ Yes</Text>
+            </View>
           </View>
 
-          {/* Dynamic Pricing Selection from pricing.json */}
+          {/* Pricing Selection */}
           <View style={styles.plansContainer}>
             {/* Annual Option */}
-            {isAnnualEnabled && (
-              <TouchableOpacity
-                style={[styles.planCard, selectedPlan === 'annual' && styles.selectedPlanCard]}
-                onPress={() => setSelectedPlan('annual')}
-                activeOpacity={0.9}
-              >
-                <View style={styles.savingsTag}>
-                  <Text style={styles.savingsTagText}>{pricingConfig.annual.savings_badge} (RECOMMENDED)</Text>
-                </View>
+            <TouchableOpacity
+              style={[styles.planCard, selectedPlan === 'annual' && styles.selectedPlanCard]}
+              onPress={() => setSelectedPlan('annual')}
+              activeOpacity={0.9}
+            >
+              <View style={styles.savingsTag}>
+                <Text style={styles.savingsTagText}>SAVE 40% (RECOMMENDED)</Text>
+              </View>
 
-                <View style={styles.planHeader}>
-                  <View>
-                    <Text style={styles.planTitle}>Yearly Access</Text>
-                    <Text style={styles.planSubtitle}>
-                      {pricingConfig.annual.display_price} {pricingConfig.annual.period} ({pricingConfig.annual.monthly_equivalent})
-                    </Text>
-                  </View>
-                  <View style={[styles.radioCircle, selectedPlan === 'annual' && styles.selectedRadio]}>
-                    {selectedPlan === 'annual' && <Check size={14} color="#FFF" />}
-                  </View>
+              <View style={styles.planHeader}>
+                <View>
+                  <Text style={styles.planTitle}>Yearly Access</Text>
+                  <Text style={styles.planSubtitle}>
+                    {packages.annual ? packages.annual.product.priceString + ' / year' : '$29.99 / year ($2.49/mo)'}
+                  </Text>
                 </View>
-                <Text style={styles.trialNote}>Includes {pricingConfig.annual.trial_days}-Day Free Trial ($0 today)</Text>
-              </TouchableOpacity>
-            )}
+                <View style={[styles.radioCircle, selectedPlan === 'annual' && styles.selectedRadio]}>
+                  {selectedPlan === 'annual' && <Check size={14} color="#FFF" />}
+                </View>
+              </View>
+              <Text style={styles.trialNote}>Includes 7-Day Free Trial ($0 today)</Text>
+            </TouchableOpacity>
 
             {/* Monthly Option */}
-            {isMonthlyEnabled && (
-              <TouchableOpacity
-                style={[styles.planCard, selectedPlan === 'monthly' && styles.selectedPlanCard]}
-                onPress={() => setSelectedPlan('monthly')}
-                activeOpacity={0.9}
-              >
-                <View style={styles.planHeader}>
-                  <View>
-                    <Text style={styles.planTitle}>Monthly Plan</Text>
-                    <Text style={styles.planSubtitle}>
-                      {pricingConfig.monthly.display_price} {pricingConfig.monthly.period}
-                    </Text>
-                  </View>
-                  <View style={[styles.radioCircle, selectedPlan === 'monthly' && styles.selectedRadio]}>
-                    {selectedPlan === 'monthly' && <Check size={14} color="#FFF" />}
-                  </View>
+            <TouchableOpacity
+              style={[styles.planCard, selectedPlan === 'monthly' && styles.selectedPlanCard]}
+              onPress={() => setSelectedPlan('monthly')}
+              activeOpacity={0.9}
+            >
+              <View style={styles.planHeader}>
+                <View>
+                  <Text style={styles.planTitle}>Monthly Plan</Text>
+                  <Text style={styles.planSubtitle}>
+                    {packages.monthly ? packages.monthly.product.priceString + ' / month' : '$3.99 / month'}
+                  </Text>
                 </View>
-                <Text style={styles.trialNote}>Cancel anytime in Settings</Text>
-              </TouchableOpacity>
-            )}
+                <View style={[styles.radioCircle, selectedPlan === 'monthly' && styles.selectedRadio]}>
+                  {selectedPlan === 'monthly' && <Check size={14} color="#FFF" />}
+                </View>
+              </View>
+              <Text style={styles.trialNote}>Cancel anytime in Settings</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Main CTA */}
-          <TouchableOpacity style={styles.ctaBtn} onPress={handleStartTrial} activeOpacity={0.85}>
-            <Zap size={20} color="#FFF" style={{ marginRight: 8 }} />
-            <Text style={styles.ctaText}>
-              Start My {selectedPlan === 'annual' ? pricingConfig.annual.trial_days : pricingConfig.monthly.trial_days}-Day Free Trial — $0.00
-            </Text>
+          <TouchableOpacity style={styles.ctaBtn} onPress={handleStartTrial} disabled={loading} activeOpacity={0.85}>
+            {loading ? (
+              <ActivityIndicator color="#FFF" />
+            ) : (
+              <>
+                <Zap size={20} color="#FFF" style={{ marginRight: 8 }} />
+                <Text style={styles.ctaText}>Start My 7-Day Free Trial — $0.00</Text>
+              </>
+            )}
           </TouchableOpacity>
 
           <View style={styles.guaranteeRow}>
@@ -175,7 +248,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     paddingHorizontal: 10,
   },
-  featuresCard: {
+  comparisonCard: {
     width: '100%',
     backgroundColor: '#F8FAFC',
     borderRadius: 16,
@@ -184,31 +257,34 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  featuresTitle: {
-    fontSize: 14,
+  comparisonTitle: {
+    fontSize: 15,
     fontWeight: '800',
     color: '#0F172A',
     marginBottom: 12,
+    textAlign: 'center',
   },
-  featureRow: {
+  tableHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    gap: 10,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 8,
   },
-  checkIconWrapper: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#D1FAE5',
-    alignItems: 'center',
-    justifyContent: 'center',
+  colHeader: {
+    fontSize: 12,
+    fontWeight: '700',
   },
-  featureText: {
+  tableRow: {
+    flexDirection: 'row',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  cellText: {
     fontSize: 13,
-    fontWeight: '600',
     color: '#334155',
-    flex: 1,
+    fontWeight: '500',
   },
   plansContainer: {
     width: '100%',
