@@ -3,381 +3,184 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CalSnap AI — Instant AI Photo Calorie & Macro Tracker</title>
+  <title>CalSnap AI — Zero-Friction AI Nutrition & Calorie Tracker</title>
   <style>
     :root {
       --primary: #4F46E5;
-      --primary-dark: #4338CA;
-      --accent: #10B981;
+      --primary-hover: #4338CA;
       --bg: #F8FAFC;
       --card-bg: #FFFFFF;
-      --text: #0F172A;
-      --text-muted: #64748B;
+      --text-main: #0F172A;
+      --text-sub: #64748B;
       --border: #E2E8F0;
     }
-    * { box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background-color: var(--bg);
-      color: var(--text);
-      line-height: 1.6;
+      color: var(--text-main);
       margin: 0;
       padding: 0;
+      line-height: 1.6;
     }
-    /* Nav */
-    nav {
+    /* Navbar with top right Support & Privacy links */
+    .navbar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 24px 20px;
+      padding: 20px 40px;
+      background-color: #FFFFFF;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
     }
     .logo {
-      font-size: 1.5rem;
+      font-size: 22px;
       font-weight: 900;
       color: var(--primary);
       text-decoration: none;
-      display: flex;
-      align-items: center;
-      gap: 8px;
     }
-    .nav-links a {
-      color: var(--text-muted);
+    .nav-links {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+    .nav-link {
+      color: var(--text-sub);
       text-decoration: none;
       font-weight: 600;
-      font-size: 0.95rem;
-      margin-left: 24px;
-      transition: color 0.2s;
+      font-size: 15px;
+      transition: color 0.2s ease;
     }
-    .nav-links a:hover { color: var(--primary); }
-
-    /* Hero */
+    .nav-link:hover {
+      color: var(--primary);
+    }
+    .nav-btn {
+      background-color: var(--primary);
+      color: white;
+      padding: 8px 18px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    /* Hero Section */
     .hero {
       text-align: center;
-      padding: 60px 20px 80px 20px;
-      max-width: 900px;
-      margin: 0 auto;
+      padding: 80px 20px 60px;
+      background: linear-gradient(180deg, #FFFFFF 0%, #EEF2FF 100%);
     }
     .badge {
       display: inline-block;
-      background: #EEF2FF;
+      background-color: #EEF2FF;
       color: var(--primary);
       font-weight: 800;
-      font-size: 0.85rem;
-      padding: 6px 16px;
+      font-size: 13px;
+      padding: 6px 14px;
       border-radius: 20px;
-      margin-bottom: 20px;
       border: 1px solid #C7D2FE;
+      margin-bottom: 20px;
     }
     .hero h1 {
-      font-size: 3.2rem;
+      font-size: 48px;
       font-weight: 900;
-      line-height: 1.15;
-      color: #0F172A;
-      margin: 0 0 20px 0;
-      letter-spacing: -1px;
+      margin: 0 0 16px;
+      color: var(--text-main);
+      line-height: 1.2;
     }
     .hero p {
-      font-size: 1.25rem;
-      color: var(--text-muted);
-      max-width: 700px;
-      margin: 0 auto 36px auto;
+      font-size: 20px;
+      color: var(--text-sub);
+      max-width: 650px;
+      margin: 0 auto 30px;
     }
-    .cta-btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      background: var(--primary);
-      color: white;
-      font-size: 1.1rem;
-      font-weight: 800;
-      padding: 16px 36px;
-      border-radius: 14px;
-      text-decoration: none;
-      box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.4);
-      transition: transform 0.2s, background-color 0.2s;
-    }
-    .cta-btn:hover {
-      transform: translateY(-2px);
-      background: var(--primary-dark);
-    }
-
-    /* Medical Banner */
-    .disclaimer-banner {
-      max-width: 1000px;
-      margin: 0 auto 50px auto;
+    .container {
+      max-width: 900px;
+      margin: 0 auto 60px;
       padding: 0 20px;
     }
-    .disclaimer-card {
-      background: #FEF2F2;
-      border-left: 5px solid #EF4444;
-      padding: 20px 24px;
-      border-radius: 12px;
-      border: 1px solid #FEE2E2;
-    }
-    .disclaimer-card h4 {
-      margin: 0 0 6px 0;
-      color: #991B1B;
-      font-size: 1.05rem;
-    }
-    .disclaimer-card p {
-      margin: 0;
-      color: #991B1B;
-      font-size: 0.95rem;
-      line-height: 1.5;
-    }
-
-    /* Features Grid */
-    .features-section {
-      max-width: 1100px;
-      margin: 0 auto 80px auto;
-      padding: 0 20px;
-    }
-    .section-title {
-      text-align: center;
-      font-size: 2.2rem;
-      font-weight: 900;
-      margin-bottom: 48px;
-    }
-    .features-grid {
+    .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 24px;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+      margin-top: 40px;
     }
     .feature-card {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
+      background-color: var(--card-bg);
       border-radius: 20px;
-      padding: 30px;
-      box-shadow: 0 4px 15px -2px rgba(0,0,0,0.03);
-    }
-    .feature-icon {
-      font-size: 2.2rem;
-      margin-bottom: 16px;
+      padding: 26px;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
     }
     .feature-card h3 {
-      font-size: 1.25rem;
-      font-weight: 800;
-      margin: 0 0 10px 0;
-    }
-    .feature-card p {
-      color: var(--text-muted);
-      margin: 0;
-      font-size: 0.98rem;
-    }
-
-    /* FAQ Section */
-    .faq-section {
-      max-width: 800px;
-      margin: 0 auto 80px auto;
-      padding: 0 20px;
-    }
-    .faq-item {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 24px;
-      margin-bottom: 16px;
-    }
-    .faq-item h4 {
-      margin: 0 0 10px 0;
-      font-size: 1.1rem;
-      font-weight: 800;
-      color: var(--text);
-    }
-    .faq-item p {
-      margin: 0;
-      color: var(--text-muted);
-      font-size: 0.95rem;
-    }
-
-    /* Support Footer Card */
-    .support-card {
-      max-width: 800px;
-      margin: 0 auto 60px auto;
-      padding: 30px;
-      background: #EEF2FF;
-      border: 1px solid #C7D2FE;
-      border-radius: 20px;
-      text-align: center;
-    }
-    .support-card h3 {
-      margin: 0 0 10px 0;
-      font-size: 1.4rem;
-      font-weight: 900;
+      font-size: 18px;
+      margin-top: 0;
       color: var(--primary);
     }
-    .support-card p {
-      margin: 0 0 16px 0;
-      color: #3730A3;
+    .feature-card p {
+      font-size: 14px;
+      color: var(--text-sub);
+      margin-bottom: 0;
     }
-    .support-email {
-      display: inline-block;
-      background: var(--primary);
-      color: white;
-      font-weight: 800;
-      padding: 12px 24px;
-      border-radius: 10px;
-      text-decoration: none;
-    }
-
-    footer {
-      border-top: 1px solid var(--border);
-      padding: 40px 20px;
+    .footer {
       text-align: center;
-      color: var(--text-muted);
-      font-size: 0.9rem;
+      color: var(--text-sub);
+      font-size: 14px;
+      padding: 40px 20px;
+      border-top: 1px solid var(--border);
+      background-color: #FFFFFF;
     }
-    footer a {
+    .footer a {
       color: var(--primary);
       text-decoration: none;
       margin: 0 10px;
-      font-weight: 600;
     }
   </style>
 </head>
 <body>
 
-  <!-- Navigation -->
-  <nav>
-    <a href="index.html" class="logo">📸 CalSnap AI</a>
+  <!-- Top Navbar with Support & Privacy links on top right corner -->
+  <nav class="navbar">
+    <a href="index.html" class="logo">CalSnap AI</a>
     <div class="nav-links">
-      <a href="#features">Features</a>
-      <a href="#faq">FAQ</a>
-      <a href="privacy.html">Privacy</a>
-      <a href="terms.html">Terms</a>
+      <a href="privacy.html" class="nav-link">Privacy Policy</a>
+      <a href="support.html" class="nav-btn">Support</a>
     </div>
   </nav>
 
-  <!-- Hero -->
+  <!-- Hero Section -->
   <section class="hero">
-    <div class="badge">✨ Sub-Second AI Computer Vision</div>
-    <h1>Snap Your Food.<br>Track Calories & Macros Instantly.</h1>
-    <p>Zero-friction nutrition tracking powered by sub-second Gemini 2.0 Flash AI. Weekly calorie banking, portion sliders, and doctor PDF reports.</p>
-    <a href="#support" class="cta-btn">Get CalSnap AI on App Store</a>
+    <div class="badge">🔥 75% CHEAPER THAN CAL AI</div>
+    <h1>Snap Food, Track Macros Fast</h1>
+    <p>Zero-friction calorie counting with AI food photo recognition, weekly calorie banking, and interactive oil sliders.</p>
   </section>
 
-  <!-- Medical Disclaimer Banner -->
-  <div class="disclaimer-banner">
-    <div class="disclaimer-card">
-      <h4>⚠️ Educational & Informational Purpose Only — Not Medical Advice</h4>
-      <p>CalSnap AI provides nutritional approximations for educational and self-tracking purposes only. CalSnap AI is NOT a medical device and does NOT provide clinical nutrition counseling, medical advice, diagnosis, or treatment. Always consult a licensed healthcare professional before beginning any dietary regimen.</p>
+  <!-- Main Content -->
+  <div class="container">
+    <div class="grid">
+      <div class="feature-card">
+        <h3>⚡ Snap & Walk Away</h3>
+        <p>Snap your plate, put your phone away, and let AI process your meal in the background with zero loading screens.</p>
+      </div>
+
+      <div class="feature-card">
+        <h3>🏦 Weekly Calorie Banking</h3>
+        <p>Save flex calories on weekdays so you can enjoy weekend dining out without breaking your streak or feeling guilty.</p>
+      </div>
+
+      <div class="feature-card">
+        <h3>🫒 Live Cooking Oil Sliders</h3>
+        <p>Adjust cooking oils and portion multipliers in 1 swipe for 100% precision on home cooking and restaurant meals.</p>
+      </div>
     </div>
   </div>
 
-  <!-- Features -->
-  <section class="features-section" id="features">
-    <h2 class="section-title">Everything You Need for Clinical Nutrition</h2>
-    <div class="features-grid">
-
-      <div class="feature-card">
-        <div class="feature-icon">⚡</div>
-        <h3>Sub-Second AI Vision</h3>
-        <p>Take a quick photo of your meal. Our compressed AI pipeline estimates dish components, volumetric weight, and macros in under 1 second.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">☕</div>
-        <h3>1-Tap Staples Bar</h3>
-        <p>Log morning black coffee, oat milk lattes, or whey shakes in 0.1 seconds without opening the camera.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">🏦</div>
-        <h3>Weekly Calorie Banking</h3>
-        <p>Bank unused calories on light eating days to enjoy guilt-free weekend dining and social events.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">🫒</div>
-        <h3>Oil & Portion Sliders</h3>
-        <p>Recalibrate hidden cooking oils and portion multipliers instantly with live real-time macro recalculation.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">🛡️</div>
-        <h3>Face ID Vault Security</h3>
-        <p>Keep your personal food journal completely private with native Face ID and Touch ID biometric lock protection.</p>
-      </div>
-
-      <div class="feature-card">
-        <div class="feature-icon">📄</div>
-        <h3>Doctor PDF Export</h3>
-        <p>Export high-resolution PDF health summaries and raw CSV spreadsheets to share with your nutritionist or coach.</p>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- FAQ -->
-  <section class="faq-section" id="faq">
-    <h2 class="section-title">Frequently Asked Questions</h2>
-
-    <div class="faq-item">
-      <h4>Is CalSnap AI intended for medical advice or clinical counseling?</h4>
-      <p>No. CalSnap AI is built strictly for educational, informational, and self-tracking purposes. It does NOT provide medical advice, clinical nutrition counseling, diagnosis, or treatment. Always consult a qualified physician or licensed dietitian regarding dietary decisions or medical conditions.</p>
-    </div>
-
-    <div class="faq-item">
-      <h4>How does CalSnap AI estimate calories and macros from a photo?</h4>
-      <p>CalSnap AI utilizes advanced sub-second computer vision (powered by Google Gemini 2.0 Flash) combined with 3D volumetric mass estimation. It recognizes meal components, estimates food density, and calculates calories, protein, carbs, and fat in under 1 second.</p>
-    </div>
-
-    <div class="faq-item">
-      <h4>What if a restaurant meal has hidden cooking oils or heavy butter?</h4>
-      <p>Simply tap "⚙️ Adjust Portion" on any logged meal card to reveal interactive portion and oil sliders. You can slide the oil slider to recalibrate hidden cooking oils (+10g, +20g oil) with instant live macro recalculation!</p>
-    </div>
-
-    <div class="faq-item">
-      <h4>How does Weekly Calorie Banking work?</h4>
-      <p>When you eat under your target calories on lighter days (e.g. Monday–Thursday), CalSnap AI automatically saves those extra calories into your Weekly Calorie Bank. You can flex those banked calories on weekends or social dinners guilt-free!</p>
-    </div>
-
-    <div class="faq-item">
-      <h4>How are my daily calorie & macro targets calculated?</h4>
-      <p>CalSnap AI features an auto-calculator wizard based on the clinical Mifflin-St Jeor BMR & TDEE equation. It estimates your baseline metabolic rate using your age, height, weight, activity level, and weight goal (Lose Weight, Maintain, or Gain Muscle).</p>
-    </div>
-
-    <div class="faq-item">
-      <h4>Can I export my nutrition data for my nutritionist or coach?</h4>
-      <p>Yes! On the Insights tab, you can export high-resolution PDF health summaries and raw CSV spreadsheets in 1 tap to share directly with your dietitian, doctor, or personal trainer.</p>
-    </div>
-
-    <div class="faq-item">
-      <h4>How does biometric Face ID / Touch ID lock protection work?</h4>
-      <p>CalSnap AI includes a native biometric lock toggle in Settings. When enabled, opening the app requires Face ID or Touch ID authentication on your device, ensuring your personal food journal remains 100% private.</p>
-    </div>
-
-    <div class="faq-item">
-      <h4>Is my photo and personal data secure?</h4>
-      <p>Yes. All API communications are processed through an encrypted serverless Google Cloud proxy with Secret Manager isolation. Your photos are never sold or shared with third parties.</p>
-    </div>
-
-    <div class="faq-item">
-      <h4>What is included in the 7-day free trial?</h4>
-      <p>The 7-day free trial gives you full unlimited access to AI photo & voice meal snapping, Weekly Calorie Banking, portion sliders, glucose stability forecasting, and PDF exports. You can cancel anytime in 1 tap before the trial period ends.</p>
-    </div>
-  </section>
-
-  <!-- Support Footer Card -->
-  <div class="support-card" id="support">
-    <h3>Need Help or Have Questions?</h3>
-    <p>Our dedicated support team is available to assist you with any app inquiries.</p>
-    <a href="mailto:senthil930@gmail.com" class="support-email">📧 Contact Support: senthil930@gmail.com</a>
-  </div>
-
-  <!-- Footer -->
-  <footer>
-    <p>&copy; 2026 CalSnap AI. All rights reserved.</p>
-    <p>
-      <a href="index.html">Home</a> | 
-      <a href="privacy.html">Privacy Policy</a> | 
-      <a href="terms.html">Terms of Service</a>
-    </p>
-    <p style="font-size: 0.8rem; margin-top: 10px; color: #94A3B8;">
-      Disclaimer: CalSnap AI is for educational and self-tracking purposes only. Not intended for medical advice or diagnosis.
-    </p>
+  <!-- Footer with Support & Privacy links -->
+  <footer class="footer">
+    &copy; 2026 CalSnap AI. All rights reserved.
+    <br><br>
+    <a href="support.html">App Support & FAQ</a> | 
+    <a href="privacy.html">Privacy Policy</a>
   </footer>
 
 </body>
