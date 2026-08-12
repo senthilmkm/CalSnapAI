@@ -1,0 +1,28 @@
+{
+  "currency": "USD",
+  "banner_text": "🔥 Limited Time Offer: 7-Day Free Trial Included",
+  "monthly": {
+    "enabled": true,
+    "price_id": "calsnap_399_1m",
+    "display_price": "$3.99",
+    "period": "/month",
+    "trial_days": 7
+  },
+  "annual": {
+    "enabled": true,
+    "price_id": "calsnap_2999_1y",
+    "display_price": "$29.99",
+    "period": "/year",
+    "monthly_equivalent": "$2.49/mo",
+    "savings_badge": "SAVE 40%",
+    "trial_days": 7,
+    "recommended": true
+  },
+  "paywall_features": [
+    "Unlimited AI Photo & Voice Meal Snaps",
+    "Weekly Calorie Banking (No Guilt Flex Days)",
+    "Interactive Oil & Sauce Calorie Sliders",
+    "Glucose Impact & Energy Crash Predictor",
+    "Export PDF Health Reports for Doctors & Coaches"
+  ]
+}

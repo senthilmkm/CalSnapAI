@@ -1,0 +1,13 @@
+{
+  "name": "calsnap-analyze-meal",
+  "version": "1.0.0",
+  "description": "Google Cloud Function endpoint for CalSnap AI food analysis using Gemini 2.0 Flash and GCloud Secret Manager",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "@google-cloud/secret-manager": "^5.6.0"
+  }
+}

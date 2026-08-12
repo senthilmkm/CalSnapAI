@@ -42,8 +42,53 @@ export default function RootLayout() {
   return <RootLayoutNav />;
 }
 
+import { useState } from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { useAppStore } from '../services/storage';
+
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
+  const profile = useAppStore((state) => state.profile);
+  const [unlocked, setUnlocked] = useState<boolean>(!profile?.biometric_lock_enabled);
+
+  const triggerBiometricUnlock = async () => {
+    try {
+      const LocalAuthentication = require('expo-local-authentication');
+      const res = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Unlock CalSnap AI Journal',
+        fallbackLabel: 'Use Passcode',
+      });
+      if (res.success) {
+        setUnlocked(true);
+      }
+    } catch {
+      setUnlocked(true);
+    }
+  };
+
+  useEffect(() => {
+    if (profile?.biometric_lock_enabled && !unlocked) {
+      triggerBiometricUnlock();
+    }
+  }, [profile?.biometric_lock_enabled]);
+
+  if (profile?.biometric_lock_enabled && !unlocked) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0F172A', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+        <Text style={{ fontSize: 48, marginBottom: 16 }}>🔒</Text>
+        <Text style={{ fontSize: 22, fontWeight: '800', color: '#FFFFFF', marginBottom: 8 }}>CalSnap AI Locked</Text>
+        <Text style={{ fontSize: 14, color: '#94A3B8', textAlign: 'center', marginBottom: 32 }}>
+          Face ID / Touch ID authentication is required to access your nutrition journal.
+        </Text>
+        <TouchableOpacity
+          onPress={triggerBiometricUnlock}
+          style={{ backgroundColor: '#4F46E5', paddingHorizontal: 24, paddingVertical: 14, borderRadius: 16 }}
+        >
+          <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 16 }}>Unlock with Face ID</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
