@@ -1,5 +1,5 @@
 module.exports = ({ config }) => {
-  const buildNumber = process.env.EAS_BUILD_RUN_NUMBER || "144";
+  const buildNumber = process.env.EAS_BUILD_RUN_NUMBER || "145";
 
   return {
     ...config,

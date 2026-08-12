@@ -33,12 +33,13 @@ export default function SnapScreen() {
   const isFreeTier = !profile.is_pro_subscriber;
   const snapsRemaining = Math.max(0, FREE_DAILY_SNAP_LIMIT - todaySnapsCount);
 
-  // Reset viewport state when user returns/taps the Snap tab
+  // Reset all viewport and recording states when user returns/taps the Snap tab
   useFocusEffect(
     useCallback(() => {
       setSelectedImage(null);
       setCurrentMealId(null);
       setVoiceNote('');
+      setRecordingVoice(false);
     }, [])
   );
 
@@ -158,6 +159,7 @@ export default function SnapScreen() {
     if (voiceNote) {
       // Clear existing voice note
       setVoiceNote('');
+      setRecordingVoice(false);
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       return;
     }
@@ -186,6 +188,7 @@ export default function SnapScreen() {
               (text) => {
                 if (text) {
                   setVoiceNote(text);
+                  setRecordingVoice(false);
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 }
               }
