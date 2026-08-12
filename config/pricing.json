@@ -1,18 +1,18 @@
 {
   "currency": "USD",
-  "banner_text": "🔥 Limited Time: 75% Cheaper than Cal AI",
+  "banner_text": "🔥 Limited Time: 7-Day Free Trial Active",
   "monthly": {
     "price_id": "calsnap_monthly",
-    "display_price": "$3.99",
+    "display_price": "$7.99",
     "period": "/month",
     "trial_days": 7
   },
   "annual": {
     "price_id": "calsnap_yearly",
-    "display_price": "$29.99",
+    "display_price": "$24.99",
     "period": "/year",
-    "monthly_equivalent": "$2.49/mo",
-    "savings_badge": "SAVE 40%",
+    "monthly_equivalent": "$2.08/mo",
+    "savings_badge": "SAVE 74%",
     "trial_days": 7,
     "recommended": true
   },

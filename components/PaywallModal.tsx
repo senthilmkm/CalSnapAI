@@ -3,6 +3,7 @@ import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet, ActivityIn
 import { X, Check, Zap, ShieldCheck, Sparkles, RefreshCw, Flame, Sliders, FileText, Calendar } from 'lucide-react-native';
 import Purchases, { PurchasesPackage } from 'react-native-purchases';
 import { useAppStore } from '../services/storage';
+import pricingConfig from '../config/pricing.json';
 
 interface PaywallModalProps {
   visible: boolean;
@@ -118,7 +119,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
           <View style={styles.badgeRow}>
             <View style={styles.badge}>
               <Sparkles size={14} color="#6366F1" />
-              <Text style={styles.badgeText}>🔥 SPECIAL LAUNCH OFFER</Text>
+              <Text style={styles.badgeText}>{pricingConfig.banner_text}</Text>
             </View>
           </View>
 
@@ -129,45 +130,19 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
 
           {/* Premium Feature Highlights */}
           <View style={styles.featuresCard}>
-            <View style={styles.featureItem}>
-              <View style={styles.featureIconBox}>
-                <Flame size={18} color="#4F46E5" />
+            {pricingConfig.paywall_features.map((feature, idx) => (
+              <View key={idx} style={styles.featureItem}>
+                <View style={styles.featureIconBox}>
+                  {idx === 0 && <Flame size={18} color="#4F46E5" />}
+                  {idx === 1 && <Calendar size={18} color="#10B981" />}
+                  {idx === 2 && <Sliders size={18} color="#F59E0B" />}
+                  {idx >= 3 && <FileText size={18} color="#6366F1" />}
+                </View>
+                <View style={styles.featureTextBox}>
+                  <Text style={styles.featureTitle}>{feature}</Text>
+                </View>
               </View>
-              <View style={styles.featureTextBox}>
-                <Text style={styles.featureTitle}>Unlimited AI Food Photo Snaps</Text>
-                <Text style={styles.featureSub}>Instant zero-shot calorie & macro recognition</Text>
-              </View>
-            </View>
-
-            <View style={styles.featureItem}>
-              <View style={styles.featureIconBox}>
-                <Calendar size={18} color="#10B981" />
-              </View>
-              <View style={styles.featureTextBox}>
-                <Text style={styles.featureTitle}>Weekly Calorie Banking</Text>
-                <Text style={styles.featureSub}>Save flex calories for guilt-free weekend dining</Text>
-              </View>
-            </View>
-
-            <View style={styles.featureItem}>
-              <View style={styles.featureIconBox}>
-                <Sliders size={18} color="#F59E0B" />
-              </View>
-              <View style={styles.featureTextBox}>
-                <Text style={styles.featureTitle}>Live Oil & Portion Scale Sliders</Text>
-                <Text style={styles.featureSub}>Account for hidden cooking fats in 1 swipe</Text>
-              </View>
-            </View>
-
-            <View style={styles.featureItem}>
-              <View style={styles.featureIconBox}>
-                <FileText size={18} color="#6366F1" />
-              </View>
-              <View style={styles.featureTextBox}>
-                <Text style={styles.featureTitle}>Export PDF & CSV Health Reports</Text>
-                <Text style={styles.featureSub}>Share formal summaries with doctors & coaches</Text>
-              </View>
-            </View>
+            ))}
           </View>
 
           {/* Pricing Selection */}
@@ -179,21 +154,23 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
               activeOpacity={0.9}
             >
               <View style={styles.savingsTag}>
-                <Text style={styles.savingsTagText}>SAVE 40% (BEST VALUE)</Text>
+                <Text style={styles.savingsTagText}>{pricingConfig.annual.savings_badge} (BEST VALUE)</Text>
               </View>
 
               <View style={styles.planHeader}>
                 <View>
                   <Text style={styles.planTitle}>Yearly Access</Text>
                   <Text style={styles.planSubtitle}>
-                    {packages.annual ? packages.annual.product.priceString + ' / year' : '$29.99 / year ($2.49/mo)'}
+                    {packages.annual
+                      ? packages.annual.product.priceString + ' / year'
+                      : `${pricingConfig.annual.display_price} / year (${pricingConfig.annual.monthly_equivalent})`}
                   </Text>
                 </View>
                 <View style={[styles.radioCircle, selectedPlan === 'annual' && styles.selectedRadio]}>
                   {selectedPlan === 'annual' && <Check size={14} color="#FFF" />}
                 </View>
               </View>
-              <Text style={styles.trialNote}>Includes 7-Day Free Trial ($0 today)</Text>
+              <Text style={styles.trialNote}>Includes {pricingConfig.annual.trial_days}-Day Free Trial ($0 today)</Text>
             </TouchableOpacity>
 
             {/* Monthly Option */}
@@ -206,7 +183,9 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
                 <View>
                   <Text style={styles.planTitle}>Monthly Plan</Text>
                   <Text style={styles.planSubtitle}>
-                    {packages.monthly ? packages.monthly.product.priceString + ' / month' : '$3.99 / month'}
+                    {packages.monthly
+                      ? packages.monthly.product.priceString + ' / month'
+                      : `${pricingConfig.monthly.display_price} / month`}
                   </Text>
                 </View>
                 <View style={[styles.radioCircle, selectedPlan === 'monthly' && styles.selectedRadio]}>
@@ -224,7 +203,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
             ) : (
               <>
                 <Zap size={20} color="#FFF" style={{ marginRight: 8 }} />
-                <Text style={styles.ctaText}>Start My 7-Day Free Trial — $0.00</Text>
+                <Text style={styles.ctaText}>Start My {pricingConfig.annual.trial_days}-Day Free Trial — $0.00</Text>
               </>
             )}
           </TouchableOpacity>
@@ -342,14 +321,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   featureTitle: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '700',
     color: '#0F172A',
-  },
-  featureSub: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 1,
   },
   plansContainer: {
     width: '100%',
