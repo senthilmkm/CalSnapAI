@@ -185,13 +185,13 @@ export default function SnapScreen() {
       )}
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Camera Viewport / Target Reticle Scanner Box */}
+        {/* Main Camera Viewfinder Target Box */}
         <TouchableOpacity style={styles.cameraBox} onPress={handleCameraSnap} activeOpacity={0.9}>
           {selectedImage ? (
             <Image source={{ uri: selectedImage }} style={styles.previewImage} />
           ) : (
             <View style={styles.cameraPlaceholder}>
-              {/* Target Viewfinder Target Frame with Corner Brackets */}
+              {/* Viewfinder Target Frame with Glowing Reticle Brackets */}
               <View style={styles.viewfinderFrame}>
                 <View style={[styles.cornerBracket, styles.topLeftCorner]} />
                 <View style={[styles.cornerBracket, styles.topRightCorner]} />
@@ -199,10 +199,10 @@ export default function SnapScreen() {
                 <View style={[styles.cornerBracket, styles.bottomRightCorner]} />
 
                 <View style={styles.cameraCircleIcon}>
-                  <Camera size={30} color="#FFFFFF" />
+                  <Camera size={32} color="#FFFFFF" />
                 </View>
-                <Text style={styles.placeholderTitle}>Align Food Plate Here</Text>
-                <Text style={styles.placeholderText}>Tap anywhere inside frame to open Camera</Text>
+                <Text style={styles.placeholderTitle}>Tap Frame to Take Photo</Text>
+                <Text style={styles.placeholderText}>Align food plate & snap instantly</Text>
               </View>
             </View>
           )}
@@ -227,20 +227,15 @@ export default function SnapScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* Action Controls Row */}
-        <View style={styles.shutterRow}>
+        {/* Action Controls Row (Streamlined - Zero Redundancy) */}
+        <View style={styles.actionRow}>
           <TouchableOpacity style={styles.galleryBtn} onPress={handlePickImage} activeOpacity={0.85}>
-            <ImageIcon size={22} color="#475569" />
+            <ImageIcon size={20} color="#475569" />
             <Text style={styles.controlBtnLabel}>Photo Library</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.shutterBtn} onPress={handleCameraSnap} disabled={analyzing} activeOpacity={0.85}>
-            <Camera size={26} color="#FFFFFF" />
-            <Text style={styles.shutterBtnText}>Take Photo</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity style={styles.proBtn} onPress={() => setPaywallVisible(true)} activeOpacity={0.85}>
-            <Zap size={22} color="#D97706" />
+            <Zap size={20} color="#D97706" />
             <Text style={styles.proBtnLabel}>CalSnap Pro</Text>
           </TouchableOpacity>
         </View>
@@ -337,7 +332,7 @@ const styles = StyleSheet.create({
   },
   cameraBox: {
     width: '100%',
-    height: 270,
+    height: 280,
     borderRadius: 24,
     backgroundColor: '#0F172A',
     overflow: 'hidden',
@@ -405,9 +400,9 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 8,
   },
   cameraCircleIcon: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: '#4F46E5',
     alignItems: 'center',
     justifyContent: 'center',
@@ -420,7 +415,7 @@ const styles = StyleSheet.create({
   },
   placeholderTitle: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
   },
   placeholderText: {
@@ -448,7 +443,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 14,
-    marginBottom: 20,
+    marginBottom: 16,
     gap: 10,
     borderWidth: 1,
     borderColor: '#C7D2FE',
@@ -463,62 +458,44 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
   },
-  shutterRow: {
+  actionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 24,
-    gap: 10,
+    gap: 12,
   },
   galleryBtn: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    paddingVertical: 12,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    gap: 4,
-  },
-  controlBtnLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#475569',
-  },
-  shutterBtn: {
-    flex: 2,
-    backgroundColor: '#4F46E5',
     paddingVertical: 14,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
     gap: 8,
-    shadowColor: '#4F46E5',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
   },
-  shutterBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
+  controlBtnLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#475569',
   },
   proBtn: {
     flex: 1,
     backgroundColor: '#FEF3C7',
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
     borderWidth: 1,
     borderColor: '#FCD34D',
-    gap: 4,
+    gap: 8,
   },
   proBtnLabel: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '800',
     color: '#D97706',
   },
