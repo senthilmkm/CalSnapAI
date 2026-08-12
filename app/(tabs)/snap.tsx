@@ -165,8 +165,8 @@ export default function SnapScreen() {
     }
 
     Alert.alert(
-      '🎙️ Add Meal Note',
-      'Describe preparation method, extra oils, or portion size for high-precision AI analysis.',
+      '🎙️ Add Meal Detail (Optional)',
+      'Describe preparation method, extra oils, or portion eaten to boost AI accuracy.',
       [
         {
           text: '🎙️ Record Voice Note',
@@ -252,7 +252,7 @@ export default function SnapScreen() {
           )}
         </TouchableOpacity>
 
-        {/* Voice Note Bar */}
+        {/* Voice / Text Note Bar */}
         <TouchableOpacity
           style={[styles.voiceBar, recordingVoice && styles.voiceBarActive, !!voiceNote && styles.voiceBarFilled]}
           onPress={handleToggleVoice}
@@ -263,13 +263,13 @@ export default function SnapScreen() {
             {recordingVoice
               ? '🎙️ Recording note... (3s)'
               : voiceNote
-              ? `Note: "${voiceNote}" (Tap to clear)`
-              : 'Tap to add voice/text note (e.g. "cooked in ghee")'}
+              ? `Attached Note: "${voiceNote}" (Tap to clear)`
+              : 'Add Voice/Text Note (Optional)'}
           </Text>
           {!!voiceNote && <XCircle size={18} color="#047857" />}
         </TouchableOpacity>
 
-        {/* Action Controls Row (Streamlined - Zero Redundancy) */}
+        {/* Action Controls Row */}
         <View style={styles.actionRow}>
           <TouchableOpacity style={styles.galleryBtn} onPress={handlePickImage} activeOpacity={0.85}>
             <ImageIcon size={20} color="#475569" />
@@ -282,12 +282,18 @@ export default function SnapScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Live Interactive Sliders (When Active Meal Logged) */}
+        {/* Live Interactive Results Container */}
         {activeMeal && (
           <View style={styles.resultContainer}>
+            {/* Dish Header Row with Flex Wrapping & Calorie Pill Badge */}
             <View style={styles.dishHeaderRow}>
-              <Text style={styles.dishTitle}>{activeMeal.dish_name}</Text>
-              <Text style={styles.dishCals}>{activeMeal.total_calories} kcal</Text>
+              <Text style={styles.dishTitle} numberOfLines={2} ellipsizeMode="tail">
+                {activeMeal.dish_name}
+              </Text>
+              <View style={styles.dishCalsBadge}>
+                <Text style={styles.dishCalsText}>{activeMeal.total_calories}</Text>
+                <Text style={styles.dishCalsUnit}>kcal</Text>
+              </View>
             </View>
 
             {/* Interactive Portion & Oil Sliders */}
@@ -374,7 +380,7 @@ const styles = StyleSheet.create({
   },
   cameraBox: {
     width: '100%',
-    height: 280,
+    height: 270,
     borderRadius: 24,
     backgroundColor: '#0F172A',
     overflow: 'hidden',
@@ -442,9 +448,9 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 8,
   },
   cameraCircleIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#4F46E5',
     alignItems: 'center',
     justifyContent: 'center',
@@ -561,16 +567,32 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+    gap: 12,
   },
   dishTitle: {
     fontSize: 18,
     fontWeight: '800',
     color: '#0F172A',
+    flex: 1, // Allow long titles to wrap gracefully without clipping!
   },
-  dishCals: {
+  dishCalsBadge: {
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dishCalsText: {
     fontSize: 18,
     fontWeight: '900',
     color: '#4F46E5',
+  },
+  dishCalsUnit: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#6366F1',
+    marginTop: -2,
   },
   aiTipBox: {
     flexDirection: 'row',

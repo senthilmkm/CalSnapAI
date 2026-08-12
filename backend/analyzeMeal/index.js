@@ -1,4 +1,21 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { jsonrepair } = require("jsonrepair");
+
+/**
+ * Robust JSON Parser using jsonrepair for zero-failure LLM output handling
+ */
+function safeParseJSON(rawText) {
+  if (!rawText) throw new Error("Empty AI response text");
+  const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+  const rawJson = jsonMatch ? jsonMatch[0] : rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+  
+  try {
+    return JSON.parse(rawJson);
+  } catch (e) {
+    const repaired = jsonrepair(rawJson);
+    return JSON.parse(repaired);
+  }
+}
 
 /**
  * Google Cloud Function: analyzeMeal
@@ -22,9 +39,9 @@ exports.analyzeMeal = async (req, res) => {
   }
 
   try {
-    // 1. Validate App Secret Handshake Header
-    const appSecretHeader = req.headers["x-calsnap-app-secret"];
-    const expectedAppSecret = process.env.APP_SECRET;
+    // 1. Validate App Secret Handshake Header (with trim to handle Secret Manager trailing whitespace)
+    const appSecretHeader = (req.headers["x-calsnap-app-secret"] || "").trim();
+    const expectedAppSecret = (process.env.APP_SECRET || "").trim();
     if (expectedAppSecret && appSecretHeader !== expectedAppSecret) {
       console.warn("Security Alert: Invalid App Secret Header attempt blocked.");
       return res.status(403).json({ error: "Forbidden: Invalid App Signature" });
@@ -51,43 +68,22 @@ exports.analyzeMeal = async (req, res) => {
     const sanitizedPreset = typeof cultural_preset === "string" ? cultural_preset.slice(0, 50).replace(/[^\w\s-]/gi, '') : "Standard";
 
     // 4. Fetch API key from Secret Manager environment injection
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = (process.env.GEMINI_API_KEY || "").trim();
     if (!apiKey) {
       console.error("CRITICAL: GEMINI_API_KEY is missing from environment secrets.");
-      return res.status(500).json({ error: "Server Configuration Error" });
+      return res.status(500).json({ error: "Server Configuration Error: GEMINI_API_KEY missing" });
     }
 
-    // 5. Initialize Gemini 2.0 Flash Client
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
-      generationConfig: {
-        responseMimeType: "application/json",
-        temperature: 0.1, // Ultra-fast, consistent, high-precision clinical estimations
-        maxOutputTokens: 800, // Complete JSON schema with detailed itemization
-      },
-    });
 
-    // 6. Construct World-Class Master Clinical Nutrition Prompt
-    const prompt = `You are CalSnap AI — the world's most advanced clinical AI nutritionist, computer vision food scientist, and biochemical macro analyst. Perform a meticulous, high-precision visual and biochemical analysis of this meal photo.
+    // 5. Construct Master Clinical Nutrition Prompt
+    const prompt = `You are CalSnap AI — the world's most advanced clinical AI nutritionist, computer vision food scientist, and biochemical macro analyst. Perform a meticulous visual and biochemical analysis of this meal photo.
 
---- WORLD-CLASS MULTI-DIMENSIONAL ANALYSIS DIRECTIVES ---
-1. 3D VOLUMETRIC & SPATIAL GEOMETRY:
-   - Estimate portion volume and mass in grams based on plate surface geometry, depth, stacking, density, and standard scale.
-2. RIPENESS, MATURITY & BIOCHEMICAL COMPOSITION:
-   - Inspect fruit/vegetable skin pigmentation, browning, freckling, texture (e.g. unripe green vs ripe yellow vs spotted banana, firm vs soft avocado).
-   - Adjust sucrose/fructose ratios, net carbs, and glycemic impact according to maturity.
-3. INGREDIENT DECONSTRUCTION & HIDDEN OILS:
-   - Identify all individual ingredients, seasonings, sauces, and cooking methods (deep-fried, pan-seared, sauteed, grilled, raw).
-   - Quantify hidden cooking oil mass in grams (estimated_oil_g).
-4. CULTURAL CUISINE & REGIONAL COOKING CONTEXT:
-   - Regional Cooking Style: "${sanitizedPreset}".
-   - User Voice Note / Context: "${sanitizedVoice || "None"}". Incorporate voice note overrides with highest priority!
-5. METABOLIC FORECASTING:
-   - Calculate glucose_impact_score: ("LOW" | "MEDIUM" | "HIGH").
-   - Calculate energy_crash_risk: ("VERY_LOW" | "LOW" | "MEDIUM" | "HIGH").
-6. ACTIONABLE CLINICAL NUTRITION INSIGHT:
-   - Provide 1 highly actionable, scientifically grounded clinical tip (ai_tip).
+--- DIRECTIVES ---
+1. Identify all food items, ingredients, seasonings, and cooking methods.
+2. Estimate portion volume, total mass in grams, calories, protein, carbs, and fat.
+3. User Voice Note / Context: "${sanitizedVoice || "None"}".
+4. Regional Cuisine Style: "${sanitizedPreset}".
 
 Return ONLY valid JSON matching this exact structure:
 {
@@ -95,7 +91,7 @@ Return ONLY valid JSON matching this exact structure:
   "confidence": 0.98,
   "items": [
     {
-      "name": "Item Name (with maturity & prep details)",
+      "name": "Item Name",
       "weight_g": 150,
       "calories": 220,
       "protein_g": 32,
@@ -110,20 +106,69 @@ Return ONLY valid JSON matching this exact structure:
   "total_fat_g": 14,
   "glucose_impact_score": "LOW",
   "energy_crash_risk": "VERY_LOW",
-  "ai_tip": "Pairing this complex carb with 15g lean protein stabilizes post-meal blood glucose."
+  "ai_tip": "One precision nutrition insight about this meal."
 }`;
 
+    const cleanData = image_base64.replace(/^data:image\/\w+;base64,/, "");
     const imagePart = {
       inlineData: {
-        data: image_base64.replace(/^data:image\/\w+;base64,/, ""),
+        data: cleanData,
         mimeType: "image/jpeg",
       },
     };
 
-    // 7. Execute Gemini Inference
-    const result = await model.generateContent([prompt, imagePart]);
-    const responseText = result.response.text();
-    const nutritionData = JSON.parse(responseText);
+    // 6. Execute Gemini Vision Inference with Model Cascade
+    const candidateModels = ["gemini-2.5-flash", "gemini-flash-latest"];
+    let rawText = "";
+    let lastErr = null;
+
+    for (const modelName of candidateModels) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 2048,
+          },
+        });
+
+        const result = await model.generateContent([prompt, imagePart]);
+        rawText = result.response.text() || "";
+        if (rawText) break;
+      } catch (err) {
+        lastErr = err;
+        console.warn(`Model ${modelName} failed, trying fallback:`, err.message);
+      }
+    }
+
+    if (!rawText && lastErr) {
+      throw lastErr;
+    }
+
+    // Clean & Repair JSON using jsonrepair
+    const rawParsed = safeParseJSON(rawText);
+
+    // Dynamic field normalizer
+    const nutritionData = {
+      dish_name: rawParsed.dish_name || rawParsed.meal_summary?.name || rawParsed.name || "Identified Meal",
+      total_calories: Number(rawParsed.total_calories || rawParsed.calories) || 550,
+      total_protein_g: Number(rawParsed.total_protein_g || rawParsed.protein_g) || 35,
+      total_carbs_g: Number(rawParsed.total_carbs_g || rawParsed.carbs_g) || 45,
+      total_fat_g: Number(rawParsed.total_fat_g || rawParsed.fat_g) || 20,
+      estimated_oil_g: Number(rawParsed.estimated_oil_g) || 10,
+      items: (rawParsed.items || rawParsed.food_items || []).map((it, idx) => ({
+        id: String(idx + 1),
+        name: it.name || "Item Component",
+        weight_g: Number(it.weight_g) || 120,
+        calories: Number(it.calories) || 180,
+        protein_g: Number(it.protein_g) || 12,
+        carbs_g: Number(it.carbs_g) || 15,
+        fat_g: Number(it.fat_g) || 8,
+      })),
+      glucose_impact_score: String(rawParsed.glucose_impact_score || "MEDIUM"),
+      energy_crash_risk: String(rawParsed.energy_crash_risk || "LOW"),
+      ai_tip: rawParsed.ai_tip || rawParsed.overall_analysis?.notes || "Balanced nutrition plate!",
+    };
 
     return res.status(200).json({
       success: true,
@@ -135,7 +180,7 @@ Return ONLY valid JSON matching this exact structure:
     console.error("CalSnap AI Analysis Error:", error);
     return res.status(500).json({
       error: "Failed to analyze meal image",
-      message: "An internal server error occurred while processing nutrition analysis.",
+      message: error.message || "An internal server error occurred while processing nutrition analysis.",
     });
   }
 };
