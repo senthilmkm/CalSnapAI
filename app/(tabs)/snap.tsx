@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Image, ScrollView, ActivityIndicator } from 'react-native';
-import { Camera, Image as ImageIcon, Mic, Zap, Sparkles, AlertCircle } from 'lucide-react-native';
+import { Camera, Image as ImageIcon, Mic, Zap, Sparkles, AlertCircle, XCircle } from 'lucide-react-native';
 import { useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
@@ -151,16 +151,50 @@ export default function SnapScreen() {
   const handleToggleVoice = async () => {
     if (recordingVoice) {
       setRecordingVoice(false);
-      setVoiceNote("Extra olive oil dressing, half portion eaten");
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else {
-      setRecordingVoice(true);
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-      setTimeout(() => {
-        setRecordingVoice(false);
-        setVoiceNote("Extra olive oil dressing, half portion eaten");
-      }, 3000);
+      return;
     }
+
+    if (voiceNote) {
+      // Clear existing voice note
+      setVoiceNote('');
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      return;
+    }
+
+    Alert.alert(
+      '🎙️ Add Meal Note',
+      'Describe preparation method, extra oils, or portion size for high-precision AI analysis.',
+      [
+        {
+          text: '🎙️ Record Voice Note',
+          onPress: async () => {
+            setRecordingVoice(true);
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            setTimeout(() => {
+              setRecordingVoice(false);
+              setVoiceNote("Extra olive oil dressing, half portion eaten");
+            }, 3000);
+          },
+        },
+        {
+          text: '✍️ Type Custom Note',
+          onPress: () => {
+            Alert.prompt(
+              'Meal Note',
+              'Enter details (e.g. "cooked in ghee, half portion"):',
+              (text) => {
+                if (text) {
+                  setVoiceNote(text);
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                }
+              }
+            );
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
   };
 
   return (
@@ -217,14 +251,19 @@ export default function SnapScreen() {
 
         {/* Voice Note Bar */}
         <TouchableOpacity
-          style={[styles.voiceBar, recordingVoice && styles.voiceBarActive]}
+          style={[styles.voiceBar, recordingVoice && styles.voiceBarActive, !!voiceNote && styles.voiceBarFilled]}
           onPress={handleToggleVoice}
           activeOpacity={0.85}
         >
-          <Mic size={20} color={recordingVoice ? '#EF4444' : '#4F46E5'} />
-          <Text style={styles.voiceText}>
-            {recordingVoice ? '🎙️ Listening... (Hold or tap to finish)' : voiceNote ? `Voice Note: "${voiceNote}"` : 'Tap to add voice note (e.g. "used extra olive oil")'}
+          <Mic size={20} color={recordingVoice ? '#EF4444' : voiceNote ? '#047857' : '#4F46E5'} />
+          <Text style={[styles.voiceText, !!voiceNote && styles.voiceTextFilled]}>
+            {recordingVoice
+              ? '🎙️ Recording note... (3s)'
+              : voiceNote
+              ? `Note: "${voiceNote}" (Tap to clear)`
+              : 'Tap to add voice/text note (e.g. "cooked in ghee")'}
           </Text>
+          {!!voiceNote && <XCircle size={18} color="#047857" />}
         </TouchableOpacity>
 
         {/* Action Controls Row (Streamlined - Zero Redundancy) */}
@@ -452,11 +491,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF2F2',
     borderColor: '#FCA5A5',
   },
+  voiceBarFilled: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
   voiceText: {
     fontSize: 13,
     color: '#3730A3',
     fontWeight: '600',
     flex: 1,
+  },
+  voiceTextFilled: {
+    color: '#047857',
+    fontWeight: '700',
   },
   actionRow: {
     flexDirection: 'row',
