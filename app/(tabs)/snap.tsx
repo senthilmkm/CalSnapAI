@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Image, ScrollView, ActivityIndicator } from 'react-native';
-import { Camera, Image as ImageIcon, Mic, Zap, Sparkles, AlertCircle } from 'lucide-react-native';
+import { Camera, Image as ImageIcon, Mic, Zap, Sparkles, AlertCircle, Scan } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../../services/storage';
@@ -175,17 +175,25 @@ export default function SnapScreen() {
       )}
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Camera Viewport / Image Preview Card */}
+        {/* Camera Viewport / Target Reticle Scanner Box */}
         <TouchableOpacity style={styles.cameraBox} onPress={handleCameraSnap} activeOpacity={0.9}>
           {selectedImage ? (
             <Image source={{ uri: selectedImage }} style={styles.previewImage} />
           ) : (
             <View style={styles.cameraPlaceholder}>
-              <View style={styles.cameraCircleIcon}>
-                <Camera size={32} color="#FFFFFF" />
+              {/* Target Viewfinder Target Frame with Corner Brackets */}
+              <View style={styles.viewfinderFrame}>
+                <View style={[styles.cornerBracket, styles.topLeftCorner]} />
+                <View style={[styles.cornerBracket, styles.topRightCorner]} />
+                <View style={[styles.cornerBracket, styles.bottomLeftCorner]} />
+                <View style={[styles.cornerBracket, styles.bottomRightCorner]} />
+
+                <View style={styles.cameraCircleIcon}>
+                  <Camera size={30} color="#FFFFFF" />
+                </View>
+                <Text style={styles.placeholderTitle}>Align Food Plate Here</Text>
+                <Text style={styles.placeholderText}>Tap anywhere inside frame to open Camera</Text>
               </View>
-              <Text style={styles.placeholderTitle}>Tap to Open Camera</Text>
-              <Text style={styles.placeholderText}>Take a photo of your meal or snack</Text>
             </View>
           )}
 
@@ -319,15 +327,15 @@ const styles = StyleSheet.create({
   },
   cameraBox: {
     width: '100%',
-    height: 250,
+    height: 270,
     borderRadius: 24,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#0F172A',
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
-    borderWidth: 2,
-    borderColor: '#E2E8F0',
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   previewImage: {
     width: '100%',
@@ -335,27 +343,81 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
   cameraPlaceholder: {
+    width: '100%',
+    height: '100%',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
+    padding: 16,
+  },
+  viewfinderFrame: {
+    width: '85%',
+    height: '80%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 16,
+    borderStyle: 'dashed',
+  },
+  cornerBracket: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    borderColor: '#6366F1',
+  },
+  topLeftCorner: {
+    top: -2,
+    left: -2,
+    borderTopWidth: 4,
+    borderLeftWidth: 4,
+    borderTopLeftRadius: 8,
+  },
+  topRightCorner: {
+    top: -2,
+    right: -2,
+    borderTopWidth: 4,
+    borderRightWidth: 4,
+    borderTopRightRadius: 8,
+  },
+  bottomLeftCorner: {
+    bottom: -2,
+    left: -2,
+    borderBottomWidth: 4,
+    borderLeftWidth: 4,
+    borderBottomLeftRadius: 8,
+  },
+  bottomRightCorner: {
+    bottom: -2,
+    right: -2,
+    borderBottomWidth: 4,
+    borderRightWidth: 4,
+    borderBottomRightRadius: 8,
   },
   cameraCircleIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     backgroundColor: '#4F46E5',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 4,
   },
   placeholderTitle: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
   },
   placeholderText: {
     color: '#94A3B8',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
+    marginTop: 2,
   },
   analyzingOverlay: {
     ...StyleSheet.absoluteFill,
