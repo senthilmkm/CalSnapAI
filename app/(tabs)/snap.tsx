@@ -42,6 +42,40 @@ export default function SnapScreen() {
     return true;
   };
 
+  // Launch Native iOS Camera
+  const handleCameraSnap = async () => {
+    if (analyzing) return;
+    if (!verifyPaywallGate()) return;
+
+    try {
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert('Permission Required', 'Camera permission is required to take food photos.');
+        return;
+      }
+
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0].base64) {
+        setSelectedImage(result.assets[0].uri);
+        await processImageAnalysis(result.assets[0].base64, result.assets[0].uri);
+      }
+    } catch (err) {
+      // Fallback for iOS Simulator where physical camera is unavailable
+      const mockBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+      const mockUri = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500";
+      setSelectedImage(mockUri);
+      await processImageAnalysis(mockBase64, mockUri);
+    }
+  };
+
+  // Launch Native iOS Gallery Picker
   const handlePickImage = async () => {
     if (analyzing) return;
     if (!verifyPaywallGate()) return;
@@ -66,20 +100,6 @@ export default function SnapScreen() {
     } catch (err) {
       Alert.alert('Image Error', 'Failed to load photo.');
     }
-  };
-
-  const handleSimulateCameraSnap = async () => {
-    if (analyzing) return;
-    if (!verifyPaywallGate()) return;
-
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-    // Mock high-resolution food photo
-    const mockBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
-    const mockUri = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500";
-
-    setSelectedImage(mockUri);
-    await processImageAnalysis(mockBase64, mockUri);
   };
 
   const processImageAnalysis = async (base64: string, uri: string) => {
@@ -155,14 +175,17 @@ export default function SnapScreen() {
       )}
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Camera Viewport / Image Preview */}
-        <View style={styles.cameraBox}>
+        {/* Camera Viewport / Image Preview Card */}
+        <TouchableOpacity style={styles.cameraBox} onPress={handleCameraSnap} activeOpacity={0.9}>
           {selectedImage ? (
             <Image source={{ uri: selectedImage }} style={styles.previewImage} />
           ) : (
             <View style={styles.cameraPlaceholder}>
-              <Camera size={48} color="#94A3B8" />
-              <Text style={styles.placeholderText}>Align food in frame & tap Snap</Text>
+              <View style={styles.cameraCircleIcon}>
+                <Camera size={32} color="#FFFFFF" />
+              </View>
+              <Text style={styles.placeholderTitle}>Tap to Open Camera</Text>
+              <Text style={styles.placeholderText}>Take a photo of your meal or snack</Text>
             </View>
           )}
 
@@ -172,7 +195,7 @@ export default function SnapScreen() {
               <Text style={styles.analyzingText}>AI analyzing macros & ingredients...</Text>
             </View>
           )}
-        </View>
+        </TouchableOpacity>
 
         {/* Voice Note Bar */}
         <TouchableOpacity
@@ -186,18 +209,21 @@ export default function SnapScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* Shutter Button Row */}
+        {/* Action Controls Row */}
         <View style={styles.shutterRow}>
-          <TouchableOpacity style={styles.galleryBtn} onPress={handlePickImage}>
-            <ImageIcon size={24} color="#475569" />
+          <TouchableOpacity style={styles.galleryBtn} onPress={handlePickImage} activeOpacity={0.85}>
+            <ImageIcon size={22} color="#475569" />
+            <Text style={styles.controlBtnLabel}>Photo Library</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.shutterBtn} onPress={handleSimulateCameraSnap} disabled={analyzing} activeOpacity={0.85}>
-            <View style={styles.shutterInner} />
+          <TouchableOpacity style={styles.shutterBtn} onPress={handleCameraSnap} disabled={analyzing} activeOpacity={0.85}>
+            <Camera size={26} color="#FFFFFF" />
+            <Text style={styles.shutterBtnText}>Take Photo</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.proBtn} onPress={() => setPaywallVisible(true)}>
-            <Zap size={22} color="#F59E0B" />
+          <TouchableOpacity style={styles.proBtn} onPress={() => setPaywallVisible(true)} activeOpacity={0.85}>
+            <Zap size={22} color="#D97706" />
+            <Text style={styles.proBtnLabel}>CalSnap Pro</Text>
           </TouchableOpacity>
         </View>
 
@@ -293,13 +319,15 @@ const styles = StyleSheet.create({
   },
   cameraBox: {
     width: '100%',
-    height: 280,
+    height: 250,
     borderRadius: 24,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#1E293B',
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
   },
   previewImage: {
     width: '100%',
@@ -310,10 +338,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  cameraCircleIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#4F46E5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  placeholderTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
   placeholderText: {
     color: '#94A3B8',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   analyzingOverlay: {
     ...StyleSheet.absoluteFill,
@@ -351,41 +393,62 @@ const styles = StyleSheet.create({
   },
   shutterRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 24,
+    gap: 10,
   },
   galleryBtn: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#E2E8F0',
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 12,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    gap: 4,
+  },
+  controlBtnLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
   },
   shutterBtn: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 4,
-    borderColor: '#4F46E5',
+    flex: 2,
+    backgroundColor: '#4F46E5',
+    paddingVertical: 14,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 4,
+    flexDirection: 'row',
+    gap: 8,
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
-  shutterInner: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 30,
-    backgroundColor: '#4F46E5',
+  shutterBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
   },
   proBtn: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    flex: 1,
     backgroundColor: '#FEF3C7',
+    paddingVertical: 12,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    gap: 4,
+  },
+  proBtnLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#D97706',
   },
   resultContainer: {
     backgroundColor: '#FFFFFF',
