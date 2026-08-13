@@ -386,13 +386,16 @@ export default function TodayDashboardScreen() {
                   const isExpanded = expandedMealId === meal.id;
                   return (
                     <View key={meal.id} style={styles.mealCard}>
-                      <View style={styles.mealHeader}>
-                        {/* Food Photo Thumbnail — tap to open detail sheet */}
-                        {meal.image_uri && meal.image_uri.length > 20 && meal.image_uri !== 'MOCK_IMAGE_DATA' ? (
-                          <TouchableOpacity
-                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setDetailMeal(meal); }}
-                            activeOpacity={0.85}
-                          >
+                      <TouchableOpacity
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          setDetailMeal(meal);
+                        }}
+                        activeOpacity={0.85}
+                      >
+                        <View style={styles.mealHeader}>
+                          {/* Food Photo Thumbnail */}
+                          {meal.image_uri && meal.image_uri.length > 20 && meal.image_uri !== 'MOCK_IMAGE_DATA' ? (
                             <Image
                               source={{ uri: meal.image_uri }}
                               style={{
@@ -405,12 +408,7 @@ export default function TodayDashboardScreen() {
                                 borderColor: '#E2E8F0',
                               }}
                             />
-                          </TouchableOpacity>
-                        ) : (
-                          <TouchableOpacity
-                            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setDetailMeal(meal); }}
-                            activeOpacity={0.85}
-                          >
+                          ) : (
                             <View
                               style={{
                                 width: 52,
@@ -428,52 +426,52 @@ export default function TodayDashboardScreen() {
                                 {meal.meal_type === 'Breakfast' ? '🍳' : meal.meal_type === 'Lunch' ? '🥗' : meal.meal_type === 'Dinner' ? '🍲' : '🍎'}
                               </Text>
                             </View>
-                          </TouchableOpacity>
-                        )}
+                          )}
 
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.mealDish}>{meal.dish_name}</Text>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
-                            <Text style={styles.mealMeta}>
-                              {new Date(meal.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </Text>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.mealDish}>{meal.dish_name}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
+                              <Text style={styles.mealMeta}>
+                                {new Date(meal.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </Text>
+                              <TouchableOpacity
+                                onPress={() => {
+                                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                  setExpandedMealId(isExpanded ? null : meal.id);
+                                }}
+                                activeOpacity={0.7}
+                                style={{ backgroundColor: '#EEF2FF', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: '#C7D2FE' }}
+                              >
+                                <Text style={{ fontSize: 10, fontWeight: '800', color: '#4F46E5' }}>
+                                  {isExpanded ? '▼ Close Sliders' : '⚙️ Adjust Portion'}
+                                </Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                            <Text style={styles.mealCals}>{meal.total_calories} kcal</Text>
                             <TouchableOpacity
                               onPress={() => {
-                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                setExpandedMealId(isExpanded ? null : meal.id);
+                                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                                deleteMeal(meal.id);
                               }}
-                              activeOpacity={0.7}
-                              style={{ backgroundColor: '#EEF2FF', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: '#C7D2FE' }}
+                              activeOpacity={0.6}
+                              hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                              style={styles.trashBtn}
                             >
-                              <Text style={{ fontSize: 10, fontWeight: '800', color: '#4F46E5' }}>
-                                {isExpanded ? '▼ Close Sliders' : '⚙️ Adjust Portion'}
-                              </Text>
+                              <Trash2 size={18} color="#EF4444" />
                             </TouchableOpacity>
                           </View>
                         </View>
 
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                          <Text style={styles.mealCals}>{meal.total_calories} kcal</Text>
-                          <TouchableOpacity
-                            onPress={() => {
-                              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                              deleteMeal(meal.id);
-                            }}
-                            activeOpacity={0.6}
-                            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                            style={styles.trashBtn}
-                          >
-                            <Trash2 size={18} color="#EF4444" />
-                          </TouchableOpacity>
+                        <View style={styles.mealMacroBar}>
+                          <Text style={styles.macroTag}>P: {Number(meal.total_protein_g).toFixed(2)}g</Text>
+                          <Text style={styles.macroTag}>C: {Number(meal.total_carbs_g).toFixed(2)}g</Text>
+                          <Text style={styles.macroTag}>F: {Number(meal.total_fat_g).toFixed(2)}g</Text>
+                          {meal.estimated_oil_g > 0 && <Text style={styles.oilTag}>🫒 {meal.estimated_oil_g}g oil</Text>}
                         </View>
-                      </View>
-
-                      <View style={styles.mealMacroBar}>
-                        <Text style={styles.macroTag}>P: {Number(meal.total_protein_g).toFixed(2)}g</Text>
-                        <Text style={styles.macroTag}>C: {Number(meal.total_carbs_g).toFixed(2)}g</Text>
-                        <Text style={styles.macroTag}>F: {Number(meal.total_fat_g).toFixed(2)}g</Text>
-                        {meal.estimated_oil_g > 0 && <Text style={styles.oilTag}>🫒 {meal.estimated_oil_g}g oil</Text>}
-                      </View>
+                      </TouchableOpacity>
 
                       {/* Expandable Recalibration Sliders */}
                       {isExpanded && (

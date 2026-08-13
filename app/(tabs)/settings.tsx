@@ -73,6 +73,23 @@ export default function SettingsScreen() {
     scheduleMealReminders({ ...notifications, streak_protection_alert: val });
   };
 
+  const handleChangeReminderTime = (mealKey: 'breakfast' | 'lunch' | 'dinner', currentVal: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.prompt(
+      `Set ${mealKey.charAt(0).toUpperCase() + mealKey.slice(1)} Reminder Time`,
+      `Enter custom time (e.g. 08:30, 13:00, 19:30):`,
+      (text) => {
+        if (!text || !text.trim()) return;
+        const timeKey = `${mealKey}_time` as const;
+        updateNotifs({ [timeKey]: text.trim() });
+        scheduleMealReminders({ ...notifications, [timeKey]: text.trim() });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      },
+      'plain-text',
+      currentVal
+    );
+  };
+
   const handleAppleLogin = async () => {
     try {
       const credential = await AppleAuthentication.signInAsync({
@@ -257,25 +274,49 @@ export default function SettingsScreen() {
         {notifications.master_enabled && (
           <>
             <View style={styles.settingRow}>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.rowLabel}>🍳 Breakfast Reminder</Text>
-                <Text style={styles.rowSub}>Set for {notifications.breakfast_time}</Text>
+                <TouchableOpacity
+                  onPress={() => handleChangeReminderTime('breakfast', notifications.breakfast_time || '08:30')}
+                  activeOpacity={0.7}
+                  style={{ marginTop: 2 }}
+                >
+                  <Text style={[styles.rowSub, { color: '#4F46E5', fontWeight: '700' }]}>
+                    ⏰ Set for {notifications.breakfast_time || '08:30'} (Tap to change)
+                  </Text>
+                </TouchableOpacity>
               </View>
               <Switch value={notifications.breakfast_reminder} onValueChange={handleToggleBreakfast} trackColor={{ false: '#CBD5E1', true: '#4F46E5' }} />
             </View>
 
             <View style={styles.settingRow}>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.rowLabel}>🥗 Lunch Reminder</Text>
-                <Text style={styles.rowSub}>Set for {notifications.lunch_time}</Text>
+                <TouchableOpacity
+                  onPress={() => handleChangeReminderTime('lunch', notifications.lunch_time || '13:00')}
+                  activeOpacity={0.7}
+                  style={{ marginTop: 2 }}
+                >
+                  <Text style={[styles.rowSub, { color: '#4F46E5', fontWeight: '700' }]}>
+                    ⏰ Set for {notifications.lunch_time || '13:00'} (Tap to change)
+                  </Text>
+                </TouchableOpacity>
               </View>
               <Switch value={notifications.lunch_reminder} onValueChange={handleToggleLunch} trackColor={{ false: '#CBD5E1', true: '#4F46E5' }} />
             </View>
 
             <View style={styles.settingRow}>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.rowLabel}>🍲 Dinner Reminder</Text>
-                <Text style={styles.rowSub}>Set for {notifications.dinner_time}</Text>
+                <TouchableOpacity
+                  onPress={() => handleChangeReminderTime('dinner', notifications.dinner_time || '19:30')}
+                  activeOpacity={0.7}
+                  style={{ marginTop: 2 }}
+                >
+                  <Text style={[styles.rowSub, { color: '#4F46E5', fontWeight: '700' }]}>
+                    ⏰ Set for {notifications.dinner_time || '19:30'} (Tap to change)
+                  </Text>
+                </TouchableOpacity>
               </View>
               <Switch value={notifications.dinner_reminder} onValueChange={handleToggleDinner} trackColor={{ false: '#CBD5E1', true: '#4F46E5' }} />
             </View>
