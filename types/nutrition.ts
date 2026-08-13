@@ -80,11 +80,18 @@ export interface UserProfile {
   last_logged_date?: string;
   biometric_lock_enabled?: boolean;
   streak_freeze_saved_recently?: boolean;
+  current_weight_kg?: number;
+  weight_history?: WeightEntry[];
+  is_fasting?: boolean;
+  fast_start_timestamp?: string;
+  fasting_protocol?: '16:8' | '14:10' | '18:6';
 }
 
 export interface WeightEntry {
   id: string;
   timestamp: string; // ISO String
+  date?: string; // YYYY-MM-DD
+  weight_kg?: number;
   weight_lbs: number;
   note?: string;
 }

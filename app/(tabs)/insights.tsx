@@ -116,11 +116,46 @@ export default function InsightsScreen() {
     }`;
   }
 
+  // Weekly Net Deficit & Fat Loss Projection Math
+  const target7DayTotal = (goals.daily_calories || 2000) * 7;
+  const last7Days = getLastDays(7);
+  const last7DaysSet = new Set(last7Days.map((d) => d.key));
+  const last7DaysMeals = meals.filter((meal) => {
+    if (!meal || !meal.timestamp) return false;
+    const d = new Date(meal.timestamp);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return last7DaysSet.has(key);
+  });
+  const actual7DayConsumed = last7DaysMeals.reduce((acc, m) => acc + (Number(m.total_calories) || 0), 0);
+  const netWeeklyDeficit = target7DayTotal - actual7DayConsumed;
+  const projectedWeeklyFatLossKg = Math.max(0, Math.round((netWeeklyDeficit / 7700) * 100) / 100);
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
       {/* Header */}
       <Text style={styles.screenTitle}>Insights & Trends</Text>
       <Text style={styles.screenSubtitle}>Your nutrition trends at a glance, plus weight progress and streak.</Text>
+
+      {/* Weekly Net Deficit & Fat Loss Projection Card */}
+      <View style={styles.deficitCard}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Award size={18} color="#4F46E5" />
+            <Text style={styles.deficitCardTitle}>7-Day Net Calorie Deficit</Text>
+          </View>
+          <View style={[styles.deficitPill, netWeeklyDeficit >= 0 ? styles.deficitPillPos : styles.deficitPillNeg]}>
+            <Text style={[styles.deficitPillText, netWeeklyDeficit >= 0 ? styles.deficitPillTextPos : styles.deficitPillTextNeg]}>
+              {netWeeklyDeficit >= 0 ? `-${netWeeklyDeficit} kcal` : `+${Math.abs(netWeeklyDeficit)} kcal`}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={styles.deficitDesc}>
+          {netWeeklyDeficit >= 0
+            ? `🔥 You are currently in a net ${netWeeklyDeficit} kcal deficit over the last 7 days! Projected fat loss: ~${projectedWeeklyFatLossKg} kg/week.`
+            : `⚠️ You are ${Math.abs(netWeeklyDeficit)} kcal above your 7-day target. Adjust portion sliders to get back in a deficit!`}
+        </Text>
+      </View>
 
       {/* Streak + Total Banner */}
       <View style={styles.bannerRow}>
@@ -269,7 +304,60 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
   contentContainer: { padding: 20, paddingTop: 60, paddingBottom: 100 },
   screenTitle: { fontSize: 26, fontWeight: '900', color: '#0F172A' },
-  screenSubtitle: { fontSize: 14, color: '#64748B', marginTop: 4, marginBottom: 20 },
+  screenSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    marginBottom: 16,
+  },
+  deficitCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  deficitCardTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  deficitPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  deficitPillPos: {
+    backgroundColor: '#EEF2FF',
+    borderColor: '#C7D2FE',
+  },
+  deficitPillNeg: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FCA5A5',
+  },
+  deficitPillText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  deficitPillTextPos: {
+    color: '#4F46E5',
+  },
+  deficitPillTextNeg: {
+    color: '#DC2626',
+  },
+  deficitDesc: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+    marginTop: 8,
+    lineHeight: 18,
+  },
 
   bannerRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   bannerCard: {

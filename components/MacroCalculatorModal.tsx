@@ -22,6 +22,7 @@ interface MacroCalculatorModalProps {
 
 export function MacroCalculatorModal({ visible, onClose }: MacroCalculatorModalProps) {
   const goals = useAppStore((state) => state.goals);
+  const profile = useAppStore((state) => state.profile);
   const updateGoals = useAppStore((state) => state.updateGoals);
 
   // Form State
@@ -34,6 +35,12 @@ export function MacroCalculatorModal({ visible, onClose }: MacroCalculatorModalP
   const [weightGoal, setWeightGoal] = useState<'Lose Weight' | 'Maintain' | 'Build Muscle'>('Lose Weight');
 
   const [step, setStep] = useState<1 | 2>(1); // 1 = Form Inputs, 2 = Results
+
+  React.useEffect(() => {
+    if (profile.current_weight_kg) {
+      setWeightLbs(String(Math.round(profile.current_weight_kg * 2.20462)));
+    }
+  }, [profile.current_weight_kg, visible]);
 
   // Clinical Calculations (Mifflin-St Jeor)
   const calculateMacros = () => {

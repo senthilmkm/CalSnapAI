@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import pricingConfig from '../../config/pricing.json';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
-import { Flame, Plus, ChevronRight, ChevronLeft, Calendar, Zap, ShieldCheck, Trash2, Sparkles } from 'lucide-react-native';
+import { Flame, Plus, ChevronRight, ChevronLeft, Calendar, Zap, ShieldCheck, Trash2, Sparkles, Scale, Clock, Timer } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../../services/storage';
 import { MacroRing } from '../../components/MacroRing';
@@ -11,10 +11,14 @@ import { OilSlider } from '../../components/OilSlider';
 import { PaywallModal } from '../../components/PaywallModal';
 import { MealDetailSheet } from '../../components/MealDetailSheet';
 import { StaplesBar } from '../../components/StaplesBar';
+import { QuickAddModal } from '../../components/QuickAddModal';
+import { WeightLogModal } from '../../components/WeightLogModal';
 import { MealRecord } from '../../types/nutrition';
 
 export default function TodayDashboardScreen() {
   const [paywallVisible, setPaywallVisible] = useState(false);
+  const [quickAddVisible, setQuickAddVisible] = useState(false);
+  const [weightLogVisible, setWeightLogVisible] = useState(false);
   const [expandedMealId, setExpandedMealId] = useState<string | null>(null);
   const [detailMeal, setDetailMeal] = useState<MealRecord | null>(null);
   const [selectedDateOffset, setSelectedDateOffset] = useState<number>(0); // 0 = Today, -1 = Yesterday, etc.
@@ -28,6 +32,7 @@ export default function TodayDashboardScreen() {
   const deleteMeal = useAppStore((state) => state.deleteMeal);
   const updateMealSliders = useAppStore((state) => state.updateMealSliders);
   const dismissStreakFreezeBanner = useAppStore((state) => state.dismissStreakFreezeBanner);
+  const toggleFastState = useAppStore((state) => state.toggleFastState);
 
   const getTargetDateStr = (offset: number) => {
     const d = new Date();
@@ -37,6 +42,21 @@ export default function TodayDashboardScreen() {
     const day = String(d.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
+
+  const getFastingInfo = () => {
+    if (!profile.is_fasting || !profile.fast_start_timestamp) {
+      return { hours: 0, minutes: 0, targetHours: 16, percentage: 0, isFasting: false };
+    }
+    const elapsedMs = Math.max(0, Date.now() - new Date(profile.fast_start_timestamp).getTime());
+    const hoursFloat = elapsedMs / (1000 * 60 * 60);
+    const targetHours = profile.fasting_protocol === '18:6' ? 18 : profile.fasting_protocol === '14:10' ? 14 : 16;
+    const percentage = Math.min(100, Math.round((hoursFloat / targetHours) * 100));
+    const hours = Math.floor(hoursFloat);
+    const minutes = Math.floor((hoursFloat - hours) * 60);
+    return { hours, minutes, targetHours, percentage, isFasting: true };
+  };
+
+  const fastingInfo = getFastingInfo();
 
   const selectedDateStr = getTargetDateStr(selectedDateOffset);
   const todayMeals = getMealsForDate(selectedDateStr);
@@ -176,6 +196,64 @@ export default function TodayDashboardScreen() {
 
       {/* 1-Tap Staples & Quick Log Bar */}
       <StaplesBar selectedDateStr={selectedDateStr} />
+
+      {/* 2-Card Row: Scale Weight & Intermittent Fasting Timer */}
+      <View style={styles.quickCardsRow}>
+        {/* Scale Weight Logger Card */}
+        <TouchableOpacity
+          style={styles.quickCard}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setWeightLogVisible(true);
+          }}
+          activeOpacity={0.8}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Scale size={16} color="#4F46E5" />
+            <Text style={styles.quickCardTitle}>Scale Weight</Text>
+          </View>
+          <Text style={styles.quickCardVal}>
+            {profile.current_weight_kg ? `${profile.current_weight_kg} kg` : 'Tap to Log'}
+          </Text>
+          <Text style={styles.quickCardSub}>BMR Sync Active</Text>
+        </TouchableOpacity>
+
+        {/* Fasting Timer Card */}
+        <TouchableOpacity
+          style={[styles.quickCard, fastingInfo.isFasting && { borderColor: '#10B981', backgroundColor: '#ECFDF5' }]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            toggleFastState();
+          }}
+          activeOpacity={0.8}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Timer size={16} color={fastingInfo.isFasting ? '#10B981' : '#F59E0B'} />
+            <Text style={[styles.quickCardTitle, fastingInfo.isFasting && { color: '#047857' }]}>
+              {fastingInfo.isFasting ? 'Fasting Active' : 'Eating Window'}
+            </Text>
+          </View>
+          <Text style={[styles.quickCardVal, fastingInfo.isFasting && { color: '#047857' }]}>
+            {fastingInfo.isFasting ? `${fastingInfo.hours}h ${fastingInfo.minutes}m` : 'Tap to Start'}
+          </Text>
+          <Text style={[styles.quickCardSub, fastingInfo.isFasting && { color: '#059669' }]}>
+            {fastingInfo.isFasting ? `Target ${fastingInfo.targetHours}h (${fastingInfo.percentage}%)` : `${profile.fasting_protocol || '16:8'} Fast`}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Emergency 3-Sec Quick Add Button */}
+        <TouchableOpacity
+          style={styles.quickAddPillBtn}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setQuickAddVisible(true);
+          }}
+          activeOpacity={0.8}
+        >
+          <Zap size={16} color="#FFFFFF" />
+          <Text style={styles.quickAddPillText}>3s Quick Add</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Macro Ring Hero Card (with Embedded Calorie Bank Pill) */}
       <View style={styles.ringCard}>
@@ -418,6 +496,12 @@ export default function TodayDashboardScreen() {
         )}
       </View>
 
+      {/* Quick Add Modal */}
+      <QuickAddModal visible={quickAddVisible} onClose={() => setQuickAddVisible(false)} />
+
+      {/* Scale Weight Log Modal */}
+      <WeightLogModal visible={weightLogVisible} onClose={() => setWeightLogVisible(false)} />
+
       {/* Paywall Modal */}
       <PaywallModal visible={paywallVisible} onClose={() => setPaywallVisible(false)} />
 
@@ -502,6 +586,56 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     color: '#4F46E5',
+  },
+  quickCardsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
+  },
+  quickCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  quickCardTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748B',
+  },
+  quickCardVal: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#0F172A',
+    marginTop: 4,
+  },
+  quickCardSub: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  quickAddPillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4F46E5',
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    borderRadius: 16,
+    gap: 6,
+  },
+  quickAddPillText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   freezeSavedBanner: {
     flexDirection: 'row',

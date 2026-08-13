@@ -27,9 +27,13 @@ interface AppState {
 
   // Weight Tracker & History
   weight_entries: WeightEntry[];
-  addWeightEntry: (weight_lbs: number, note?: string) => void;
+  addWeightEntry: (weightValue: number, isKg?: boolean, note?: string) => void;
   deleteWeightEntry: (id: string) => void;
   getWeightStats: () => { current: number; starting: number; netChange: number; monthChange: number };
+
+  // Fasting Tracker
+  toggleFastState: () => void;
+  setFastingProtocol: (protocol: '16:8' | '14:10' | '18:6') => void;
 
   // Meals & History
   meals: MealRecord[];
@@ -218,20 +222,58 @@ export const useAppStore = create<AppState>()(
 
       // Weight Tracker
       weight_entries: INITIAL_WEIGHT_ENTRIES,
-      addWeightEntry: (weight_lbs, note) => {
-        const numWeight = parseFloat(String(weight_lbs));
+      addWeightEntry: (weightValue, isKg = false, note) => {
+        const numWeight = parseFloat(String(weightValue));
         if (isNaN(numWeight) || numWeight <= 0 || !Number.isFinite(numWeight)) return;
+
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+
+        const weight_lbs = isKg ? Math.round(numWeight * 2.20462 * 10) / 10 : Math.round(numWeight * 10) / 10;
+        const weight_kg = isKg ? Math.round(numWeight * 10) / 10 : Math.round((numWeight / 2.20462) * 10) / 10;
 
         const newEntry: WeightEntry = {
           id: `w-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-          timestamp: new Date().toISOString(),
-          weight_lbs: Math.round(numWeight * 10) / 10,
+          timestamp: now.toISOString(),
+          date: todayStr,
+          weight_lbs,
+          weight_kg,
           note: note ? note.trim() : undefined,
         };
         set((state) => ({
           weight_entries: [...(state.weight_entries || []), newEntry].sort(
             (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
           ),
+          profile: {
+            ...state.profile,
+            current_weight_kg: weight_kg,
+          },
+        }));
+      },
+
+      toggleFastState: () => {
+        set((state) => {
+          const currentlyFasting = !!state.profile.is_fasting;
+          return {
+            profile: {
+              ...state.profile,
+              is_fasting: !currentlyFasting,
+              fast_start_timestamp: !currentlyFasting ? new Date().toISOString() : undefined,
+              fasting_protocol: state.profile.fasting_protocol || '16:8',
+            },
+          };
+        });
+      },
+
+      setFastingProtocol: (protocol) => {
+        set((state) => ({
+          profile: {
+            ...state.profile,
+            fasting_protocol: protocol,
+          },
         }));
       },
       deleteWeightEntry: (id) => {

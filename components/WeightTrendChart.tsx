@@ -55,8 +55,7 @@ export function WeightTrendChart() {
     }
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const weightInLbs = unit === 'kg' ? Math.round(val * 2.20462 * 10) / 10 : val;
-    addWeightEntry(weightInLbs, inputNote.trim() || undefined);
+    addWeightEntry(val, unit === 'kg', inputNote.trim() || undefined);
     setModalVisible(false);
   };
 
