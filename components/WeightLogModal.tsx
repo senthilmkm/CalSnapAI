@@ -1,5 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Modal,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
+} from 'react-native';
 import { X, Check, Scale } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../services/storage';
@@ -15,7 +27,6 @@ export function WeightLogModal({ visible, onClose }: WeightLogModalProps) {
   const [noteInput, setNoteInput] = useState<string>('');
 
   const addWeightEntry = useAppStore((state) => state.addWeightEntry);
-  const profile = useAppStore((state) => state.profile);
 
   const handleSaveWeight = () => {
     const num = parseFloat(weightInput);
@@ -34,68 +45,74 @@ export function WeightLogModal({ visible, onClose }: WeightLogModalProps) {
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.modalContent}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Scale size={20} color="#4F46E5" />
-              <Text style={styles.title}>Log Scale Weight</Text>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={styles.overlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.keyboardContainer}
+          >
+            <View style={styles.modalContent}>
+              {/* Header */}
+              <View style={styles.header}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Scale size={20} color="#4F46E5" />
+                  <Text style={styles.title}>Log Scale Weight</Text>
+                </View>
+                <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
+                  <X size={20} color="#64748B" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Unit Switcher */}
+              <View style={styles.unitContainer}>
+                <TouchableOpacity
+                  style={[styles.unitBtn, unit === 'kg' && styles.unitBtnActive]}
+                  onPress={() => setUnit('kg')}
+                >
+                  <Text style={[styles.unitText, unit === 'kg' && styles.unitTextActive]}>Kilograms (kg)</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.unitBtn, unit === 'lbs' && styles.unitBtnActive]}
+                  onPress={() => setUnit('lbs')}
+                >
+                  <Text style={[styles.unitText, unit === 'lbs' && styles.unitTextActive]}>Pounds (lbs)</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Weight Input Box */}
+              <View style={styles.inputBox}>
+                <TextInput
+                  style={styles.weightInput}
+                  placeholder={unit === 'kg' ? '74.5' : '164.2'}
+                  placeholderTextColor="#CBD5E1"
+                  keyboardType="decimal-pad"
+                  value={weightInput}
+                  onChangeText={setWeightInput}
+                  selectTextOnFocus
+                />
+                <Text style={styles.unitSuffix}>{unit}</Text>
+              </View>
+
+              {/* Optional Note */}
+              <Text style={styles.fieldLabel}>Notes (Optional)</Text>
+              <TextInput
+                style={styles.noteInput}
+                placeholder="e.g. Fasted Morning Weight, Post Workout"
+                placeholderTextColor="#94A3B8"
+                value={noteInput}
+                onChangeText={setNoteInput}
+              />
+
+              {/* Submit Button */}
+              <TouchableOpacity style={styles.submitBtn} onPress={handleSaveWeight} activeOpacity={0.85}>
+                <Check size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.submitBtnText}>Save Scale Weight</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-              <X size={20} color="#64748B" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Unit Switcher */}
-          <View style={styles.unitContainer}>
-            <TouchableOpacity
-              style={[styles.unitBtn, unit === 'kg' && styles.unitBtnActive]}
-              onPress={() => setUnit('kg')}
-            >
-              <Text style={[styles.unitText, unit === 'kg' && styles.unitTextActive]}>Kilograms (kg)</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.unitBtn, unit === 'lbs' && styles.unitBtnActive]}
-              onPress={() => setUnit('lbs')}
-            >
-              <Text style={[styles.unitText, unit === 'lbs' && styles.unitTextActive]}>Pounds (lbs)</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Weight Input Box */}
-          <View style={styles.inputBox}>
-            <TextInput
-              style={styles.weightInput}
-              placeholder={unit === 'kg' ? '74.5' : '164.2'}
-              placeholderTextColor="#CBD5E1"
-              keyboardType="decimal-pad"
-              value={weightInput}
-              onChangeText={setWeightInput}
-              selectTextOnFocus
-              autoFocus
-            />
-            <Text style={styles.unitSuffix}>{unit}</Text>
-          </View>
-
-          {/* Optional Note */}
-          <Text style={styles.fieldLabel}>Notes (Optional)</Text>
-          <TextInput
-            style={styles.noteInput}
-            placeholder="e.g. Fasted Morning Weight, Post Workout"
-            placeholderTextColor="#94A3B8"
-            value={noteInput}
-            onChangeText={setNoteInput}
-          />
-
-          {/* Submit Button */}
-          <TouchableOpacity style={styles.submitBtn} onPress={handleSaveWeight} activeOpacity={0.85}>
-            <Check size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-            <Text style={styles.submitBtnText}>Save Scale Weight</Text>
-          </TouchableOpacity>
+          </KeyboardAvoidingView>
         </View>
-      </View>
+      </TouchableWithoutFeedback>
     </Modal>
   );
 }
@@ -106,11 +123,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.6)',
     justifyContent: 'flex-end',
   },
+  keyboardContainer: {
+    width: '100%',
+  },
   modalContent: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
   },
   header: {
     flexDirection: 'row',

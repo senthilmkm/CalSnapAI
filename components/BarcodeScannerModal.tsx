@@ -9,6 +9,8 @@ import {
   Image,
   Alert,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 import { Barcode, X, RefreshCw, Check, Sparkles, ShieldCheck, Globe, Zap, Flashlight, AlertCircle } from 'lucide-react-native';
@@ -137,7 +139,11 @@ export function BarcodeScannerModal({ visible, onClose, onMealLogged }: BarcodeS
         {/* Content Viewport */}
         {scannedProduct ? (
           /* Scanned Product Result Review Card */
-          <View style={styles.resultContainer}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ flex: 1 }}
+          >
+            <View style={styles.resultContainer}>
             <View style={styles.productBadgeRow}>
               {scannedProduct.is_fallback ? (
                 <View style={styles.fallbackBadge}>
@@ -228,6 +234,7 @@ export function BarcodeScannerModal({ visible, onClose, onMealLogged }: BarcodeS
               </TouchableOpacity>
             </View>
           </View>
+        </KeyboardAvoidingView>
         ) : (
           /* Live Camera Viewfinder */
           <View style={styles.cameraWrapper}>

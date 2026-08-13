@@ -1,5 +1,18 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, Alert, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Modal,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
+} from 'react-native';
 import { X, Check, Zap, PlusCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../services/storage';
@@ -88,8 +101,13 @@ export function QuickAddModal({ visible, onClose, onMealLogged }: QuickAddModalP
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.modalContent}>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={styles.overlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ width: '100%' }}
+          >
+            <View style={styles.modalContent}>
           {/* Header */}
           <View style={styles.header}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -192,9 +210,11 @@ export function QuickAddModal({ visible, onClose, onMealLogged }: QuickAddModalP
             </TouchableOpacity>
           </ScrollView>
         </View>
-      </View>
-    </Modal>
-  );
+      </KeyboardAvoidingView>
+    </View>
+  </TouchableWithoutFeedback>
+</Modal>
+);
 }
 
 const styles = StyleSheet.create({

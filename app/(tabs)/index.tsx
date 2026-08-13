@@ -197,9 +197,9 @@ export default function TodayDashboardScreen() {
       {/* 1-Tap Staples & Quick Log Bar */}
       <StaplesBar selectedDateStr={selectedDateStr} />
 
-      {/* 2-Card Row: Scale Weight & Intermittent Fasting Timer */}
+      {/* 3-Card Aesthetic Action Row: Weight, Fasting, Quick Add */}
       <View style={styles.quickCardsRow}>
-        {/* Scale Weight Logger Card */}
+        {/* Card 1: Scale Weight Logger */}
         <TouchableOpacity
           style={styles.quickCard}
           onPress={() => {
@@ -208,50 +208,57 @@ export default function TodayDashboardScreen() {
           }}
           activeOpacity={0.8}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Scale size={16} color="#4F46E5" />
-            <Text style={styles.quickCardTitle}>Scale Weight</Text>
+          <View style={styles.cardHeaderIconRow}>
+            <View style={[styles.iconCircle, { backgroundColor: '#EEF2FF' }]}>
+              <Scale size={16} color="#4F46E5" />
+            </View>
           </View>
-          <Text style={styles.quickCardVal}>
-            {profile.current_weight_kg ? `${profile.current_weight_kg} kg` : 'Tap to Log'}
+          <Text style={styles.quickCardTitle}>Scale Weight</Text>
+          <Text style={styles.quickCardVal} numberOfLines={1}>
+            {profile.current_weight_kg ? `${profile.current_weight_kg} kg` : 'Log Weight'}
           </Text>
-          <Text style={styles.quickCardSub}>BMR Sync Active</Text>
         </TouchableOpacity>
 
-        {/* Fasting Timer Card */}
+        {/* Card 2: Intermittent Fasting Timer */}
         <TouchableOpacity
-          style={[styles.quickCard, fastingInfo.isFasting && { borderColor: '#10B981', backgroundColor: '#ECFDF5' }]}
+          style={[styles.quickCard, fastingInfo.isFasting && { borderColor: '#A7F3D0', backgroundColor: '#ECFDF5' }]}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             toggleFastState();
           }}
           activeOpacity={0.8}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Timer size={16} color={fastingInfo.isFasting ? '#10B981' : '#F59E0B'} />
-            <Text style={[styles.quickCardTitle, fastingInfo.isFasting && { color: '#047857' }]}>
-              {fastingInfo.isFasting ? 'Fasting Active' : 'Eating Window'}
-            </Text>
+          <View style={styles.cardHeaderIconRow}>
+            <View style={[styles.iconCircle, { backgroundColor: fastingInfo.isFasting ? '#D1FAE5' : '#FEF3C7' }]}>
+              <Timer size={16} color={fastingInfo.isFasting ? '#059669' : '#D97706'} />
+            </View>
           </View>
-          <Text style={[styles.quickCardVal, fastingInfo.isFasting && { color: '#047857' }]}>
-            {fastingInfo.isFasting ? `${fastingInfo.hours}h ${fastingInfo.minutes}m` : 'Tap to Start'}
+          <Text style={[styles.quickCardTitle, fastingInfo.isFasting && { color: '#047857' }]}>
+            {fastingInfo.isFasting ? 'Fasting Active' : 'Fasting Timer'}
           </Text>
-          <Text style={[styles.quickCardSub, fastingInfo.isFasting && { color: '#059669' }]}>
-            {fastingInfo.isFasting ? `Target ${fastingInfo.targetHours}h (${fastingInfo.percentage}%)` : `${profile.fasting_protocol || '16:8'} Fast`}
+          <Text style={[styles.quickCardVal, fastingInfo.isFasting && { color: '#047857' }]} numberOfLines={1}>
+            {fastingInfo.isFasting ? `${fastingInfo.hours}h ${fastingInfo.minutes}m` : 'Start Fast'}
           </Text>
         </TouchableOpacity>
 
-        {/* Emergency 3-Sec Quick Add Button */}
+        {/* Card 3: Emergency 3-Sec Quick Add */}
         <TouchableOpacity
-          style={styles.quickAddPillBtn}
+          style={styles.quickCard}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             setQuickAddVisible(true);
           }}
           activeOpacity={0.8}
         >
-          <Zap size={16} color="#FFFFFF" />
-          <Text style={styles.quickAddPillText}>3s Quick Add</Text>
+          <View style={styles.cardHeaderIconRow}>
+            <View style={[styles.iconCircle, { backgroundColor: '#F0FDF4' }]}>
+              <Zap size={16} color="#16A34A" />
+            </View>
+          </View>
+          <Text style={styles.quickCardTitle}>3s Quick Add</Text>
+          <Text style={styles.quickCardVal} numberOfLines={1}>
+            + Instant Log
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -590,52 +597,46 @@ const styles = StyleSheet.create({
   quickCardsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     marginBottom: 14,
   },
   quickCard: {
     flex: 1,
+    height: 88,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: 18,
+    padding: 10,
+    justifyContent: 'space-between',
     borderWidth: 1,
     borderColor: '#E2E8F0',
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  quickCardTitle: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#64748B',
-  },
-  quickCardVal: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#0F172A',
-    marginTop: 4,
-  },
-  quickCardSub: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#94A3B8',
-    marginTop: 2,
-  },
-  quickAddPillBtn: {
+  cardHeaderIconRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#4F46E5',
-    paddingHorizontal: 12,
-    paddingVertical: 14,
-    borderRadius: 16,
-    gap: 6,
+    justifyContent: 'space-between',
   },
-  quickAddPillText: {
-    fontSize: 12,
+  iconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickCardTitle: {
+    fontSize: 10,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#64748B',
+    marginTop: 4,
+  },
+  quickCardVal: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#0F172A',
   },
   freezeSavedBanner: {
     flexDirection: 'row',
