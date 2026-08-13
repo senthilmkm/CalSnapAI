@@ -9,10 +9,10 @@
   },
   "annual": {
     "price_id": "calsnap_yearly",
-    "display_price": "$47.99",
+    "display_price": "$49.99",
     "period": "/year",
-    "monthly_equivalent": "$3.99/mo",
-    "savings_badge": "SAVE 60%",
+    "monthly_equivalent": "$4.16/mo",
+    "savings_badge": "SAVE 58%",
     "trial_days": 7,
     "recommended": true
   },

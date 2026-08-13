@@ -131,7 +131,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
           {/* High-Converting Value Callout Banner */}
           <View style={styles.coffeeBanner}>
             <Text style={styles.coffeeBannerText}>
-              ☕ Less than a cup of coffee per month (<Text style={{ fontWeight: '900', color: '#4F46E5' }}>$3.99/mo</Text>)
+              ☕ Less than a cup of coffee per month (<Text style={{ fontWeight: '900', color: '#4F46E5' }}>$4.16/mo</Text>)
             </Text>
           </View>
 
