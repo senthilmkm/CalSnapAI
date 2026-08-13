@@ -143,6 +143,7 @@ export default function SnapScreen() {
         energy_crash_risk: result.energy_crash_risk,
         ai_tip: result.ai_tip,
         image_uri: uri,
+        voice_transcript: voiceNote || undefined,
       });
 
       setCurrentMealId(newMeal.id);

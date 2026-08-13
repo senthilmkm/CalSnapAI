@@ -77,6 +77,14 @@ export function MealDetailSheet({ meal, onClose }: Props) {
             </Text>
           </View>
 
+          {/* User Typed / Voice Note Callout */}
+          {meal.voice_transcript ? (
+            <View style={styles.userNoteCard}>
+              <Text style={styles.userNoteTitle}>📝 Your Typed/Voice Note</Text>
+              <Text style={styles.userNoteText}>"{meal.voice_transcript}"</Text>
+            </View>
+          ) : null}
+
           {/* Calorie Hero */}
           <View style={styles.calsCard}>
             <Flame size={28} color="#F97316" />
@@ -185,6 +193,28 @@ const styles = StyleSheet.create({
   badge: { backgroundColor: '#EEF2FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: '#C7D2FE' },
   badgeText: { fontSize: 12, fontWeight: '800', color: '#4F46E5' },
   metaTime: { fontSize: 13, color: '#64748B', fontWeight: '600' },
+  userNoteCard: {
+    marginHorizontal: 20,
+    marginTop: 12,
+    backgroundColor: '#EEF2FF',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  userNoteTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#4F46E5',
+    marginBottom: 4,
+  },
+  userNoteText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+    fontStyle: 'italic',
+    lineHeight: 18,
+  },
   calsCard: {
     flexDirection: 'row', alignItems: 'center',
     marginHorizontal: 20, marginTop: 14,
