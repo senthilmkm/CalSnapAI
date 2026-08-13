@@ -13,12 +13,32 @@ const FAQS: FAQItem[] = [
     answer: "CalSnap AI uses Google's multimodal Gemini 2.0 Flash API to recognize food items and recipes zero-shot. In addition, our live Portion and Cooking Oil sliders let you fine-tune the meal in 1 swipe for 100% precision.",
   },
   {
+    question: "How does Scale Weight & BMR/TDEE Sync work?",
+    answer: "Logging your daily scale weight on the Home tab updates your profile and automatically recalculates your Mifflin-St Jeor BMR and TDEE calorie targets, keeping your daily goals mathematically precise as your weight changes.",
+  },
+  {
+    question: "How does the Intermittent Fasting Timer work?",
+    answer: "Tap the Fasting Timer card on the Home tab to start or end your fast. Supports 16:8, 14:10, and 18:6 protocols with real-time elapsed time tracking and eating window alerts.",
+  },
+  {
+    question: "What is 3s Quick Add for manual calorie logging?",
+    answer: "3s Quick Add lets you log calories and macros instantly with 1-tap preset chips (200, 350, 500, 750 cal) or custom inputs without taking a photo or scanning a barcode.",
+  },
+  {
     question: "What is Weekly Calorie Banking?",
-    answer: "Calorie Banking lets you save 150-300 kcal on weekdays so you can enjoy weekend meals or dining out with zero guilt and without ruining your streak.",
+    answer: "Calorie Banking lets you save 150-300 kcal on weekdays so you can enjoy weekend flex dining with zero guilt and without ruining your calorie deficit or streak.",
   },
   {
     question: "Does CalSnap AI work for regional or home-cooked dishes?",
-    answer: "Yes! CalSnap AI is trained on global food datasets (Indian, East Asian, Middle Eastern, Latin American, European, African) and accounts for home-style cooking oils and spices.",
+    answer: "Yes! CalSnap AI is trained on global food datasets (Indian, East Asian, Middle Eastern, Latin American, European, African) and accounts for home-style cooking oils, ghee, and spices.",
+  },
+  {
+    question: "What happens if a barcode scan has incomplete nutrition info?",
+    answer: "If a scanned product has missing data on public databases, CalSnap AI opens an inline Quick-Editor allowing you to type the serving calorie value directly and log it in 1 tap.",
+  },
+  {
+    question: "How does Streak Protection work when I miss a day?",
+    answer: "If you miss logging for 1 day, CalSnap AI automatically consumes 1 Streak Freeze to protect your streak count and displays a celebratory protection banner.",
   },
   {
     question: "How is my photo data & privacy protected?",

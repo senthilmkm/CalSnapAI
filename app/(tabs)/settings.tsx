@@ -374,18 +374,12 @@ export default function SettingsScreen() {
       {/* FAQ Accordion Section */}
       <FAQAccordion />
 
-      {/* App Diagnostics & Build Info */}
-      <View style={styles.diagCard}>
-        <View style={styles.sectionHeaderRow}>
-          <Smartphone size={18} color="#64748B" />
-          <Text style={styles.diagTitle}>App Diagnostics & EAS Build Info</Text>
-        </View>
-        <Text style={styles.diagText}>
-          App Version: {Constants.expoConfig?.version || Constants.nativeAppVersion || ''}
-          { (Constants.expoConfig?.ios?.buildNumber || Constants.nativeBuildVersion) ? ` (Build #${Constants.expoConfig?.ios?.buildNumber || Constants.nativeBuildVersion} - Auto Increment)` : '' }
+      {/* App Version & Build Footer */}
+      <View style={styles.footerContainer}>
+        <Text style={styles.footerAppText}>
+          CalSnap AI v{Constants.expoConfig?.version || Constants.nativeAppVersion || '1.0.0'}
+          {(Constants.expoConfig?.ios?.buildNumber || Constants.nativeBuildVersion) ? ` (Build #${Constants.expoConfig?.ios?.buildNumber || Constants.nativeBuildVersion})` : ''}
         </Text>
-        <Text style={styles.diagText}>EAS Update Channel: Production (OTA Active)</Text>
-        <Text style={styles.diagText}>Security: Google Cloud Secret Manager Binding (Active)</Text>
       </View>
 
       {/* Paywall Modal */}
@@ -721,5 +715,17 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '800',
+  },
+  footerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 16,
+    paddingVertical: 10,
+  },
+  footerAppText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#94A3B8',
+    letterSpacing: 0.2,
   },
 });
