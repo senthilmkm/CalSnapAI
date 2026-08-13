@@ -7,6 +7,7 @@ export interface AnalyzeMealParams {
   imageBase64: string;
   voiceTranscript?: string;
   culturalPreset?: string;
+  cookingStyle?: 'raw' | 'light' | 'heavy';
   userAuthToken?: string;
   geminiApiKey?: string;
 }
@@ -37,22 +38,37 @@ export async function analyzeMealImage(params: AnalyzeMealParams): Promise<Omit<
         image_base64: params.imageBase64,
         voice_transcript: params.voiceTranscript,
         cultural_preset: params.culturalPreset || 'Standard',
+        cooking_style: params.cookingStyle || 'light',
       }),
     });
 
     if (response.ok) {
       const json = await response.json();
       if (json.success && json.data) {
+        const items = json.data.items || [];
+        const sumCals = items.reduce((acc: number, it: any) => acc + (Number(it.calories) || 0), 0);
+        const sumProtein = items.reduce((acc: number, it: any) => acc + (Number(it.protein_g) || 0), 0);
+        const sumCarbs = items.reduce((acc: number, it: any) => acc + (Number(it.carbs_g) || 0), 0);
+        const sumFat = items.reduce((acc: number, it: any) => acc + (Number(it.fat_g) || 0), 0);
+
+        let oilGrams = Number(json.data.estimated_oil_g) || 0;
+        if (params.cookingStyle === 'raw') oilGrams = 0;
+        if (params.cookingStyle === 'light') oilGrams = 5;
+        if (params.cookingStyle === 'heavy') oilGrams = 15;
+
+        const totalCals = (sumCals > 0 ? sumCals : (Number(json.data.total_calories) || 250)) + (oilGrams * 9);
+        const totalFat = (sumFat > 0 ? Number(sumFat.toFixed(1)) : (Number(json.data.total_fat_g) || 10)) + oilGrams;
+
         return {
-          dish_name: json.data.dish_name,
+          dish_name: json.data.dish_name || 'Identified Meal',
           meal_type: getMealTypeByHour(),
-          items: json.data.items || [],
-          estimated_oil_g: json.data.estimated_oil_g || 10,
+          items: items,
+          estimated_oil_g: oilGrams,
           portion_multiplier: 1.0,
-          total_calories: json.data.total_calories || 500,
-          total_protein_g: json.data.total_protein_g || 35,
-          total_carbs_g: json.data.total_carbs_g || 45,
-          total_fat_g: json.data.total_fat_g || 18,
+          total_calories: totalCals,
+          total_protein_g: sumProtein > 0 ? Number(sumProtein.toFixed(1)) : (Number(json.data.total_protein_g) || 15),
+          total_carbs_g: sumCarbs > 0 ? Number(sumCarbs.toFixed(1)) : (Number(json.data.total_carbs_g) || 30),
+          total_fat_g: Number(totalFat.toFixed(1)),
           glucose_impact_score: json.data.glucose_impact_score || 'LOW',
           energy_crash_risk: json.data.energy_crash_risk || 'VERY_LOW',
           ai_tip: json.data.ai_tip || 'Balanced nutrition plate!',
@@ -371,17 +387,28 @@ Return ONLY a valid, parseable JSON object with NO markdown formatting or text s
     };
   }
 
+  const items = parsed.items || [];
+  const sumCals = items.reduce((acc: number, it: any) => acc + (Number(it.calories) || 0), 0);
+  const sumProtein = items.reduce((acc: number, it: any) => acc + (Number(it.protein_g) || 0), 0);
+  const sumCarbs = items.reduce((acc: number, it: any) => acc + (Number(it.carbs_g) || 0), 0);
+  const sumFat = items.reduce((acc: number, it: any) => acc + (Number(it.fat_g) || 0), 0);
+
+  const calcCals = sumCals > 0 ? sumCals : (Number(parsed.total_calories) || 250);
+  const calcProtein = sumProtein > 0 ? sumProtein : (Number(parsed.total_protein_g) || 15);
+  const calcCarbs = sumCarbs > 0 ? sumCarbs : (Number(parsed.total_carbs_g) || 30);
+  const calcFat = sumFat > 0 ? sumFat : (Number(parsed.total_fat_g) || 10);
+
   return {
     dish_name: parsed.dish_name || 'Analyzed Meal',
     image_uri: imageBase64 && imageBase64.length > 20 ? imageBase64 : undefined,
     meal_type: getMealTypeByHour(),
-    items: parsed.items || [],
-    estimated_oil_g: parsed.estimated_oil_g || 0,
+    items: items,
+    estimated_oil_g: Number(parsed.estimated_oil_g) || 0,
     portion_multiplier: 1.0,
-    total_calories: Number(parsed.total_calories) || 250,
-    total_protein_g: Number(parsed.total_protein_g) || 15,
-    total_carbs_g: Number(parsed.total_carbs_g) || 30,
-    total_fat_g: Number(parsed.total_fat_g) || 10,
+    total_calories: calcCals,
+    total_protein_g: calcProtein,
+    total_carbs_g: calcCarbs,
+    total_fat_g: calcFat,
     glucose_impact_score: parsed.glucose_impact_score || 'LOW',
     energy_crash_risk: parsed.energy_crash_risk || 'VERY_LOW',
     ai_tip: parsed.ai_tip || 'Nutritious choice!',

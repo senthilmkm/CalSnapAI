@@ -148,25 +148,38 @@ Return ONLY valid JSON matching this exact structure:
     // Clean & Repair JSON using jsonrepair
     const rawParsed = safeParseJSON(rawText);
 
+    // Parse items first
+    const parsedItems = (rawParsed.items || rawParsed.food_items || []).map((it, idx) => ({
+      id: String(idx + 1),
+      name: it.name || "Food Item",
+      weight_g: Number(it.weight_g) || 50,
+      calories: Math.max(0, Math.round(Number(it.calories) || 0)),
+      protein_g: Math.max(0, Number((Number(it.protein_g) || 0).toFixed(1))),
+      carbs_g: Math.max(0, Number((Number(it.carbs_g) || 0).toFixed(1))),
+      fat_g: Math.max(0, Number((Number(it.fat_g) || 0).toFixed(1))),
+    }));
+
+    const sumCalories = parsedItems.reduce((acc, it) => acc + it.calories, 0);
+    const sumProtein = parsedItems.reduce((acc, it) => acc + it.protein_g, 0);
+    const sumCarbs = parsedItems.reduce((acc, it) => acc + it.carbs_g, 0);
+    const sumFat = parsedItems.reduce((acc, it) => acc + it.fat_g, 0);
+
+    const finalCals = sumCalories > 0 ? sumCalories : (Math.round(Number(rawParsed.total_calories || rawParsed.calories)) || 250);
+    const finalProtein = sumProtein > 0 ? sumProtein : (Number(rawParsed.total_protein_g || rawParsed.protein_g) || 15);
+    const finalCarbs = sumCarbs > 0 ? sumCarbs : (Number(rawParsed.total_carbs_g || rawParsed.carbs_g) || 30);
+    const finalFat = sumFat > 0 ? sumFat : (Number(rawParsed.total_fat_g || rawParsed.fat_g) || 10);
+
     // Dynamic field normalizer
     const nutritionData = {
       dish_name: rawParsed.dish_name || rawParsed.meal_summary?.name || rawParsed.name || "Identified Meal",
-      total_calories: Number(rawParsed.total_calories || rawParsed.calories) || 550,
-      total_protein_g: Number(rawParsed.total_protein_g || rawParsed.protein_g) || 35,
-      total_carbs_g: Number(rawParsed.total_carbs_g || rawParsed.carbs_g) || 45,
-      total_fat_g: Number(rawParsed.total_fat_g || rawParsed.fat_g) || 20,
-      estimated_oil_g: Number(rawParsed.estimated_oil_g) || 10,
-      items: (rawParsed.items || rawParsed.food_items || []).map((it, idx) => ({
-        id: String(idx + 1),
-        name: it.name || "Item Component",
-        weight_g: Number(it.weight_g) || 120,
-        calories: Number(it.calories) || 180,
-        protein_g: Number(it.protein_g) || 12,
-        carbs_g: Number(it.carbs_g) || 15,
-        fat_g: Number(it.fat_g) || 8,
-      })),
-      glucose_impact_score: String(rawParsed.glucose_impact_score || "MEDIUM"),
-      energy_crash_risk: String(rawParsed.energy_crash_risk || "LOW"),
+      total_calories: finalCals,
+      total_protein_g: Number(finalProtein.toFixed(1)),
+      total_carbs_g: Number(finalCarbs.toFixed(1)),
+      total_fat_g: Number(finalFat.toFixed(1)),
+      estimated_oil_g: Number(rawParsed.estimated_oil_g) || 0,
+      items: parsedItems,
+      glucose_impact_score: String(rawParsed.glucose_impact_score || "LOW"),
+      energy_crash_risk: String(rawParsed.energy_crash_risk || "VERY_LOW"),
       ai_tip: rawParsed.ai_tip || rawParsed.overall_analysis?.notes || "Balanced nutrition plate!",
     };
 

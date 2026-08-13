@@ -8,6 +8,7 @@ interface AppState {
   profile: UserProfile;
   setProfile: (profile: Partial<UserProfile>) => void;
   toggleBiometricLock: (enabled: boolean) => void;
+  dismissStreakFreezeBanner: () => void;
   signInWithApple: (email: string) => void;
   signOut: () => void;
 
@@ -129,6 +130,14 @@ export const useAppStore = create<AppState>()(
 
       toggleBiometricLock: (enabled) =>
         set((state) => ({ profile: { ...state.profile, biometric_lock_enabled: enabled } })),
+
+      dismissStreakFreezeBanner: () =>
+        set((state) => ({
+          profile: {
+            ...state.profile,
+            streak_freeze_saved_recently: false,
+          },
+        })),
 
       signInWithApple: (email) =>
         set((state) => ({
@@ -274,8 +283,27 @@ export const useAppStore = create<AppState>()(
 
         set((state) => {
           let newStreak = state.profile.streak_days;
-          if (state.profile.last_logged_date !== todayStr) {
-            newStreak += 1;
+          let freezeCount = state.profile.streak_freeze_count;
+          let freezeTriggered = false;
+
+          if (state.profile.last_logged_date && state.profile.last_logged_date !== todayStr) {
+            const lastDate = new Date(state.profile.last_logged_date);
+            const currentDate = new Date(todayStr);
+            const diffDays = Math.round((currentDate.getTime() - lastDate.getTime()) / (1000 * 3600 * 24));
+
+            if (diffDays === 1) {
+              newStreak += 1;
+            } else if (diffDays > 1) {
+              if (freezeCount > 0) {
+                freezeCount -= 1;
+                freezeTriggered = true;
+                newStreak += 1; // Freeze saved streak
+              } else {
+                newStreak = 1; // Reset streak
+              }
+            }
+          } else if (!state.profile.last_logged_date) {
+            newStreak = 1;
           }
 
           return {
@@ -283,6 +311,8 @@ export const useAppStore = create<AppState>()(
             profile: {
               ...state.profile,
               streak_days: newStreak,
+              streak_freeze_count: freezeCount,
+              streak_freeze_saved_recently: freezeTriggered,
               last_logged_date: todayStr,
             },
           };

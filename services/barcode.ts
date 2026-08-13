@@ -125,34 +125,29 @@ export async function fetchProductByBarcode(barcode: string): Promise<BarcodePro
       return isNaN(n) ? null : n;
     };
 
-    const rawCal =
-      parseNum(nutriments['energy-kcal_serving']) ??
+    const calValue = parseNum(nutriments['energy-kcal_serving']) ??
       parseNum(nutriments['energy-kcal_100g']) ??
       parseNum(nutriments['energy-kcal']) ??
-      (parseNum(nutriments['energy_100g']) ? parseNum(nutriments['energy_100g'])! / 4.184 : 180);
+      (parseNum(nutriments['energy_100g']) ? parseNum(nutriments['energy_100g'])! / 4.184 : null);
 
-    const calories = Math.max(0, Math.round(rawCal));
-
-    const rawProtein =
-      parseNum(nutriments['proteins_serving']) ??
+    const proteinValue = parseNum(nutriments['proteins_serving']) ??
       parseNum(nutriments['proteins_100g']) ??
-      parseNum(nutriments['proteins']) ??
-      10;
-    const protein_g = Math.max(0, Math.round(rawProtein));
+      parseNum(nutriments['proteins']);
 
-    const rawCarbs =
-      parseNum(nutriments['carbohydrates_serving']) ??
+    const carbsValue = parseNum(nutriments['carbohydrates_serving']) ??
       parseNum(nutriments['carbohydrates_100g']) ??
-      parseNum(nutriments['carbohydrates']) ??
-      20;
-    const carbs_g = Math.max(0, Math.round(rawCarbs));
+      parseNum(nutriments['carbohydrates']);
 
-    const rawFat =
-      parseNum(nutriments['fat_serving']) ??
+    const fatValue = parseNum(nutriments['fat_serving']) ??
       parseNum(nutriments['fat_100g']) ??
-      parseNum(nutriments['fat']) ??
-      5;
-    const fat_g = Math.max(0, Math.round(rawFat));
+      parseNum(nutriments['fat']);
+
+    const isIncomplete = calValue === null || proteinValue === null;
+
+    const calories = Math.max(0, Math.round(calValue ?? 180));
+    const protein_g = Math.max(0, Math.round(proteinValue ?? 10));
+    const carbs_g = Math.max(0, Math.round(carbsValue ?? 20));
+    const fat_g = Math.max(0, Math.round(fatValue ?? 5));
 
     const product_name =
       product.product_name ||
@@ -176,6 +171,7 @@ export async function fetchProductByBarcode(barcode: string): Promise<BarcodePro
       serving_size,
       image_url,
       is_fallback: false,
+      is_incomplete: isIncomplete,
     };
   } catch (error) {
     clearTimeout(timeoutId);

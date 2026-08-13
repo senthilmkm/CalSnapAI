@@ -8,9 +8,10 @@ import {
   ActivityIndicator,
   Image,
   Alert,
+  TextInput,
 } from 'react-native';
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
-import { Barcode, X, RefreshCw, Check, Sparkles, ShieldCheck, Globe, Zap, Flashlight } from 'lucide-react-native';
+import { Barcode, X, RefreshCw, Check, Sparkles, ShieldCheck, Globe, Zap, Flashlight, AlertCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { fetchProductByBarcode } from '../services/barcode';
 import { useAppStore } from '../services/storage';
@@ -28,6 +29,7 @@ export function BarcodeScannerModal({ visible, onClose, onMealLogged }: BarcodeS
   const [loading, setLoading] = useState(false);
   const [torchEnabled, setTorchEnabled] = useState(false);
   const [scannedProduct, setScannedProduct] = useState<BarcodeProduct | null>(null);
+  const [customCalorieInput, setCustomCalorieInput] = useState<string>('');
 
   const addMeal = useAppStore((state) => state.addMeal);
 
@@ -46,6 +48,7 @@ export function BarcodeScannerModal({ visible, onClose, onMealLogged }: BarcodeS
     try {
       const product = await fetchProductByBarcode(result.data);
       setScannedProduct(product);
+      setCustomCalorieInput(String(product.calories));
     } catch (err) {
       Alert.alert('Scan Failed', 'Could not retrieve product info. Please try again.');
       setScanned(false);
@@ -59,6 +62,8 @@ export function BarcodeScannerModal({ visible, onClose, onMealLogged }: BarcodeS
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
+    const activeCals = Math.max(0, parseInt(customCalorieInput, 10) || scannedProduct.calories);
+
     const mealData: Omit<MealRecord, 'id' | 'timestamp'> = {
       dish_name: scannedProduct.product_name,
       meal_type: 'Snack',
@@ -67,7 +72,7 @@ export function BarcodeScannerModal({ visible, onClose, onMealLogged }: BarcodeS
           id: `item-${Date.now()}`,
           name: scannedProduct.product_name,
           weight_g: 100,
-          calories: scannedProduct.calories,
+          calories: activeCals,
           protein_g: scannedProduct.protein_g,
           carbs_g: scannedProduct.carbs_g,
           fat_g: scannedProduct.fat_g,
@@ -75,7 +80,7 @@ export function BarcodeScannerModal({ visible, onClose, onMealLogged }: BarcodeS
       ],
       estimated_oil_g: 0,
       portion_multiplier: 1.0,
-      total_calories: scannedProduct.calories,
+      total_calories: activeCals,
       total_protein_g: scannedProduct.protein_g,
       total_carbs_g: scannedProduct.carbs_g,
       total_fat_g: scannedProduct.fat_g,
@@ -170,10 +175,29 @@ export function BarcodeScannerModal({ visible, onClose, onMealLogged }: BarcodeS
               </View>
             </View>
 
+            {scannedProduct.is_incomplete && (
+              <View style={styles.incompleteCallout}>
+                <AlertCircle size={15} color="#D97706" />
+                <Text style={styles.incompleteText}>
+                  Nutritional data incomplete. Tap calorie number below to adjust:
+                </Text>
+              </View>
+            )}
+
             {/* Macro Summary Hero */}
             <View style={styles.macroBox}>
-              <Text style={styles.macroCalText}>{scannedProduct.calories} kcal</Text>
-              <Text style={styles.macroCalLabel}>Per Serving</Text>
+              <View style={styles.inlineCalRow}>
+                <TextInput
+                  style={styles.macroCalInput}
+                  value={customCalorieInput}
+                  onChangeText={setCustomCalorieInput}
+                  keyboardType="number-pad"
+                  selectTextOnFocus
+                  maxLength={5}
+                />
+                <Text style={styles.macroCalUnit}>kcal</Text>
+              </View>
+              <Text style={styles.macroCalSubLabel}>Per Serving (Tap to edit)</Text>
 
               <View style={styles.macroGrid}>
                 <View style={styles.macroCol}>
@@ -516,6 +540,24 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     marginTop: 2,
   },
+  incompleteCallout: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    marginBottom: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  incompleteText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#92400E',
+    flex: 1,
+  },
   macroBox: {
     backgroundColor: '#F8FAFC',
     borderRadius: 18,
@@ -523,6 +565,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E2E8F0',
+  },
+  inlineCalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  macroCalInput: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#4F46E5',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    textAlign: 'center',
+    minWidth: 80,
+  },
+  macroCalUnit: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#4F46E5',
+  },
+  macroCalSubLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    marginTop: 4,
+    marginBottom: 12,
   },
   macroCalText: {
     fontSize: 32,

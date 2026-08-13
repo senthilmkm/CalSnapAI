@@ -96,7 +96,7 @@ export function MacroCalculatorModal({ visible, onClose }: MacroCalculatorModalP
     });
     Alert.alert(
       'Target Updated! 🎯',
-      `Your daily goal has been updated to ${results.targetCalories} kcal (${results.proteinG}g Protein, ${results.carbsG}g Carbs, ${results.fatG}g Fat).`
+      `Your daily goal has been set to ${results.targetCalories} kcal (${results.proteinG}g Protein, ${results.carbsG}g Carbs, ${results.fatG}g Fat).`
     );
     onClose();
     setStep(1);

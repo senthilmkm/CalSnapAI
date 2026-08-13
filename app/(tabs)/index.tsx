@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import pricingConfig from '../../config/pricing.json';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
-import { Flame, Plus, ChevronRight, ChevronLeft, Calendar, Zap, ShieldCheck, Trash2 } from 'lucide-react-native';
+import { Flame, Plus, ChevronRight, ChevronLeft, Calendar, Zap, ShieldCheck, Trash2, Sparkles } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../../services/storage';
 import { MacroRing } from '../../components/MacroRing';
@@ -27,6 +27,7 @@ export default function TodayDashboardScreen() {
   const getWeeklyBankedCalories = useAppStore((state) => state.getWeeklyBankedCalories);
   const deleteMeal = useAppStore((state) => state.deleteMeal);
   const updateMealSliders = useAppStore((state) => state.updateMealSliders);
+  const dismissStreakFreezeBanner = useAppStore((state) => state.dismissStreakFreezeBanner);
 
   const getTargetDateStr = (offset: number) => {
     const d = new Date();
@@ -146,6 +147,21 @@ export default function TodayDashboardScreen() {
           <ChevronRight size={18} color="#4F46E5" />
         </TouchableOpacity>
       </View>
+
+      {/* Celebratory Streak Freeze Saved Banner */}
+      {profile.streak_freeze_saved_recently && (
+        <View style={styles.freezeSavedBanner}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+            <Sparkles size={18} color="#4F46E5" />
+            <Text style={styles.freezeSavedText}>
+              🔥 Phew! Your Streak Freeze protected your {profile.streak_days}-day streak yesterday!
+            </Text>
+          </View>
+          <TouchableOpacity style={styles.freezeDismissBtn} onPress={dismissStreakFreezeBanner}>
+            <Text style={styles.freezeDismissText}>Got it!</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Pro Banner if Guest */}
       {profile.is_guest && (
@@ -486,6 +502,37 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     color: '#4F46E5',
+  },
+  freezeSavedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#EEF2FF',
+    marginHorizontal: 20,
+    marginBottom: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+    gap: 8,
+  },
+  freezeSavedText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#3730A3',
+    flex: 1,
+  },
+  freezeDismissBtn: {
+    backgroundColor: '#4F46E5',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  freezeDismissText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
   },
   embeddedBankHeader: {
     width: '100%',

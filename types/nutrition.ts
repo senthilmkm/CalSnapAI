@@ -79,6 +79,7 @@ export interface UserProfile {
   streak_freeze_count: number;
   last_logged_date?: string;
   biometric_lock_enabled?: boolean;
+  streak_freeze_saved_recently?: boolean;
 }
 
 export interface WeightEntry {
@@ -99,5 +100,6 @@ export interface BarcodeProduct {
   serving_size: string;
   image_url?: string;
   is_fallback: boolean;
+  is_incomplete?: boolean;
 }
 

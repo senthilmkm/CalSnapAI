@@ -1,17 +1,42 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet, Alert } from 'react-native';
-import { User, Bell, Trash2, Sparkles, Smartphone } from 'lucide-react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet, Alert, TextInput } from 'react-native';
+import { User, Bell, Trash2, Sparkles, Smartphone, Target, Calculator, Info } from 'lucide-react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../../services/storage';
 import { scheduleMealReminders } from '../../services/notifications';
 import { FAQAccordion } from '../../components/FAQAccordion';
 import { PaywallModal } from '../../components/PaywallModal';
+import { MacroCalculatorModal } from '../../components/MacroCalculatorModal';
+import Constants from 'expo-constants';
 import pricingConfig from '../../config/pricing.json';
 
 export default function SettingsScreen() {
   const [paywallVisible, setPaywallVisible] = useState(false);
+  const [macroModalVisible, setMacroModalVisible] = useState(false);
 
+  const goals = useAppStore((state) => state.goals);
+  const updateGoals = useAppStore((state) => state.updateGoals);
   const profile = useAppStore((state) => state.profile);
+
+  const [directCalorieInput, setDirectCalorieInput] = useState<string>(String(goals.daily_calories));
+  const [calorieInputError, setCalorieInputError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDirectCalorieInput(String(goals.daily_calories));
+    setCalorieInputError(null);
+  }, [goals.daily_calories]);
+
+  const handleDirectCalorieChange = (val: string) => {
+    setDirectCalorieInput(val);
+    const num = parseInt(val, 10);
+    if (isNaN(num) || num < 500 || num > 10000) {
+      setCalorieInputError('Target must be 500 – 10,000 kcal');
+    } else {
+      setCalorieInputError(null);
+      updateGoals({ daily_calories: num });
+    }
+  };
   const signInWithApple = useAppStore((state) => state.signInWithApple);
   const signOut = useAppStore((state) => state.signOut);
 
@@ -93,6 +118,16 @@ export default function SettingsScreen() {
     Alert.alert('Cache Cleared', 'Photo cache cleared to free up storage space.');
   };
 
+  const handleShowAccountBenefits = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert(
+      '💡 Benefits of Signing In',
+      '• 🍏 Account Identity: Link your verified Apple ID email to your CalSnap profile.\n\n' +
+      '• 🔥 Streak & Profile Binding: Securely bind your daily streak count and macro preferences to your account.\n\n' +
+      '• 👑 CalSnap Pro License: Restore and access your Pro subscription seamlessly across Apple devices.'
+    );
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
       <Text style={styles.screenTitle}>Settings</Text>
@@ -101,8 +136,13 @@ export default function SettingsScreen() {
       {/* Account & Login Section */}
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeaderRow}>
-          <User size={20} color="#4F46E5" />
-          <Text style={styles.sectionTitle}>Account & Security</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+            <User size={20} color="#4F46E5" />
+            <Text style={styles.sectionTitle}>Account & Security</Text>
+          </View>
+          <TouchableOpacity onPress={handleShowAccountBenefits} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Info size={18} color="#6366F1" />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.userStatusRow}>
@@ -114,6 +154,15 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {profile.is_guest && (
+          <TouchableOpacity style={styles.benefitCallout} onPress={handleShowAccountBenefits} activeOpacity={0.85}>
+            <Info size={14} color="#4338CA" />
+            <Text style={styles.benefitCalloutText}>
+              Why sign in? Link your Apple ID, secure your profile & sync your Pro license.
+            </Text>
+          </TouchableOpacity>
+        )}
+
         {profile.is_guest ? (
           <TouchableOpacity style={styles.appleBtn} onPress={handleAppleLogin} activeOpacity={0.85}>
             <Text style={styles.appleBtnText}>🍏 Sign in with Apple</Text>
@@ -123,6 +172,58 @@ export default function SettingsScreen() {
             <Text style={styles.signOutText}>Sign Out Account</Text>
           </TouchableOpacity>
         )}
+      </View>
+
+      {/* Daily Nutrition & Calorie Goals */}
+      <View style={styles.sectionCard}>
+        <View style={styles.sectionHeaderRow}>
+          <Target size={20} color="#10B981" />
+          <Text style={styles.sectionTitle}>Daily Calorie & Macro Goals</Text>
+        </View>
+
+        <View style={styles.goalOverviewRow}>
+          <View style={styles.goalStatItem}>
+            <View style={styles.inlineCalorieRow}>
+              <TextInput
+                style={[
+                  styles.inlineCalorieInput,
+                  calorieInputError ? styles.inlineCalorieInputError : null
+                ]}
+                value={directCalorieInput}
+                onChangeText={handleDirectCalorieChange}
+                keyboardType="number-pad"
+                selectTextOnFocus
+                maxLength={5}
+              />
+              <Text style={styles.inlineCalorieUnit}>kcal</Text>
+            </View>
+            <Text style={[styles.goalStatLabel, calorieInputError ? styles.goalStatLabelError : null]}>
+              {calorieInputError || 'Daily Target (Tap to edit)'}
+            </Text>
+          </View>
+          <View style={styles.goalStatDivider} />
+          <View style={styles.goalStatItem}>
+            <Text style={styles.goalStatValue}>{goals.weight_goal}</Text>
+            <Text style={styles.goalStatLabel}>Strategy</Text>
+          </View>
+        </View>
+
+        <View style={styles.macroPillsRow}>
+          <View style={styles.macroPill}>
+            <Text style={styles.macroPillText}>🍗 {goals.daily_protein_g}g Protein</Text>
+          </View>
+          <View style={styles.macroPill}>
+            <Text style={styles.macroPillText}>🍚 {goals.daily_carbs_g}g Carbs</Text>
+          </View>
+          <View style={styles.macroPill}>
+            <Text style={styles.macroPillText}>🥑 {goals.daily_fat_g}g Fat</Text>
+          </View>
+        </View>
+
+        <TouchableOpacity style={styles.adjustGoalsBtn} onPress={() => setMacroModalVisible(true)} activeOpacity={0.85}>
+          <Calculator size={18} color="#FFFFFF" />
+          <Text style={styles.adjustGoalsText}>Calculate & Adjust Goals</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Subscription Card */}
@@ -238,13 +339,19 @@ export default function SettingsScreen() {
           <Smartphone size={18} color="#64748B" />
           <Text style={styles.diagTitle}>App Diagnostics & EAS Build Info</Text>
         </View>
-        <Text style={styles.diagText}>App Version: 1.0.0 (Build #142 - Auto Increment)</Text>
+        <Text style={styles.diagText}>
+          App Version: {Constants.expoConfig?.version || Constants.nativeAppVersion || ''}
+          { (Constants.expoConfig?.ios?.buildNumber || Constants.nativeBuildVersion) ? ` (Build #${Constants.expoConfig?.ios?.buildNumber || Constants.nativeBuildVersion} - Auto Increment)` : '' }
+        </Text>
         <Text style={styles.diagText}>EAS Update Channel: Production (OTA Active)</Text>
         <Text style={styles.diagText}>Security: Google Cloud Secret Manager Binding (Active)</Text>
       </View>
 
       {/* Paywall Modal */}
       <PaywallModal visible={paywallVisible} onClose={() => setPaywallVisible(false)} />
+
+      {/* Macro Calculator & Goal Editor Modal */}
+      <MacroCalculatorModal visible={macroModalVisible} onClose={() => setMacroModalVisible(false)} />
     </ScrollView>
   );
 }
@@ -320,6 +427,24 @@ const styles = StyleSheet.create({
   },
   proText: {
     color: '#065F46',
+  },
+  benefitCallout: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginBottom: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  benefitCalloutText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#3730A3',
+    flex: 1,
   },
   appleBtn: {
     backgroundColor: '#000000',
@@ -461,5 +586,99 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     marginTop: 4,
+  },
+  goalOverviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginVertical: 12,
+  },
+  goalStatItem: {
+    alignItems: 'center',
+  },
+  inlineCalorieRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  inlineCalorieInput: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    textAlign: 'center',
+    minWidth: 58,
+  },
+  inlineCalorieInputError: {
+    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
+    color: '#DC2626',
+  },
+  inlineCalorieUnit: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  goalStatValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  goalStatLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    marginTop: 2,
+  },
+  goalStatLabelError: {
+    color: '#EF4444',
+    fontWeight: '700',
+  },
+  goalStatDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#CBD5E1',
+  },
+  macroPillsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    gap: 8,
+  },
+  macroPill: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    paddingVertical: 7,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  macroPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  adjustGoalsBtn: {
+    backgroundColor: '#10B981',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 6,
+  },
+  adjustGoalsText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
   },
 });

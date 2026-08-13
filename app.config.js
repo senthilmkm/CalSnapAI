@@ -1,5 +1,5 @@
 module.exports = ({ config }) => {
-  const buildNumber = process.env.EAS_BUILD_RUN_NUMBER || "145";
+  const buildNumber = process.env.EAS_BUILD_RUN_NUMBER || config.ios?.buildNumber || "146";
 
   return {
     ...config,
@@ -32,7 +32,11 @@ module.exports = ({ config }) => {
         monochromeImage: "./assets/images/android-icon-monochrome.png",
         backgroundColor: "#ffffff"
       },
-      package: "com.senthilkannan.calsnapai"
+      package: "com.senthilkannan.calsnapai",
+      permissions: [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     web: {
       bundler: "metro",
@@ -41,6 +45,7 @@ module.exports = ({ config }) => {
     },
     plugins: [
       "expo-router",
+      "expo-camera",
       "expo-image-picker",
       "expo-notifications"
     ],

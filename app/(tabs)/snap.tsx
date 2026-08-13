@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Image, ScrollView, ActivityIndicator } from 'react-native';
-import { Camera, Image as ImageIcon, Mic, Zap, Sparkles, AlertCircle, XCircle, HelpCircle, Info } from 'lucide-react-native';
+import { Camera, Image as ImageIcon, Mic, Zap, Sparkles, AlertCircle, XCircle, HelpCircle, Info, Barcode } from 'lucide-react-native';
 import { useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
@@ -9,6 +9,7 @@ import { analyzeMealImage, parseNaturalLanguageMeal } from '../../services/api';
 import { OilSlider } from '../../components/OilSlider';
 import { PortionSlider } from '../../components/PortionSlider';
 import { PaywallModal } from '../../components/PaywallModal';
+import { BarcodeScannerModal } from '../../components/BarcodeScannerModal';
 import { sendInstantAsyncMealNotification } from '../../services/notifications';
 
 const FREE_DAILY_SNAP_LIMIT = 3;
@@ -20,6 +21,8 @@ export default function SnapScreen() {
   const [voiceNote, setVoiceNote] = useState('');
   const [currentMealId, setCurrentMealId] = useState<string | null>(null);
   const [paywallVisible, setPaywallVisible] = useState(false);
+  const [barcodeModalVisible, setBarcodeModalVisible] = useState(false);
+  const [cookingStyle, setCookingStyle] = useState<'raw' | 'light' | 'heavy'>('light');
 
   const profile = useAppStore((state) => state.profile);
   const goals = useAppStore((state) => state.goals);
@@ -40,6 +43,7 @@ export default function SnapScreen() {
       setCurrentMealId(null);
       setVoiceNote('');
       setRecordingVoice(false);
+      setCookingStyle('light');
     }, [])
   );
 
@@ -92,9 +96,11 @@ export default function SnapScreen() {
     if (!verifyPaywallGate()) return;
 
     try {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
-        Alert.alert('Permission Denied', 'Camera roll permission is required to select food photos.');
+        Alert.alert('Permission Required', 'Photo library permission is required to select food photos.');
         return;
       }
 
@@ -120,6 +126,7 @@ export default function SnapScreen() {
         imageBase64: base64,
         voiceTranscript: voiceNote,
         culturalPreset: goals.cultural_preset,
+        cookingStyle: cookingStyle,
       });
       
       const newMeal = addMeal({
@@ -282,16 +289,52 @@ export default function SnapScreen() {
           {!!voiceNote && <XCircle size={18} color="#047857" />}
         </TouchableOpacity>
 
+        {/* Cooking Style Oil Selector Pills */}
+        <View style={styles.cookingStyleRow}>
+          <TouchableOpacity
+            style={[styles.stylePill, cookingStyle === 'raw' && styles.stylePillActiveRaw]}
+            onPress={() => setCookingStyle('raw')}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.stylePillText, cookingStyle === 'raw' && styles.stylePillTextActive]}>
+              🥗 Raw/Boiled (0g)
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.stylePill, cookingStyle === 'light' && styles.stylePillActiveLight]}
+            onPress={() => setCookingStyle('light')}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.stylePillText, cookingStyle === 'light' && styles.stylePillTextActive]}>
+              🍳 Light Oil (+5g)
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.stylePill, cookingStyle === 'heavy' && styles.stylePillActiveHeavy]}
+            onPress={() => setCookingStyle('heavy')}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.stylePillText, cookingStyle === 'heavy' && styles.stylePillTextActive]}>
+              🧈 Heavy Ghee (+15g)
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Action Controls Row */}
         <View style={styles.actionRow}>
           <TouchableOpacity style={styles.galleryBtn} onPress={handlePickImage} activeOpacity={0.85}>
-            <ImageIcon size={20} color="#475569" />
+            <ImageIcon size={18} color="#475569" />
             <Text style={styles.controlBtnLabel}>Photo Library</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity style={styles.barcodeBtn} onPress={() => setBarcodeModalVisible(true)} activeOpacity={0.85}>
+            <Barcode size={18} color="#4F46E5" />
+            <Text style={styles.barcodeBtnLabel}>Scan Barcode</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.proBtn} onPress={() => setPaywallVisible(true)} activeOpacity={0.85}>
-            <Zap size={20} color="#D97706" />
-            <Text style={styles.proBtnLabel}>CalSnap Pro</Text>
+            <Zap size={18} color="#D97706" />
+            <Text style={styles.proBtnLabel}>Pro</Text>
           </TouchableOpacity>
         </View>
 
@@ -333,6 +376,13 @@ export default function SnapScreen() {
 
       {/* StoreKit 2 Paywall Modal */}
       <PaywallModal visible={paywallVisible} onClose={() => setPaywallVisible(false)} />
+
+      {/* Real-time OpenFoodFacts Barcode Scanner Modal */}
+      <BarcodeScannerModal
+        visible={barcodeModalVisible}
+        onClose={() => setBarcodeModalVisible(false)}
+        onMealLogged={(meal) => setCurrentMealId(meal.id)}
+      />
     </View>
   );
 }
@@ -577,6 +627,43 @@ const styles = StyleSheet.create({
     color: '#047857',
     fontWeight: '700',
   },
+  cookingStyleRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 12,
+  },
+  stylePill: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  stylePillActiveRaw: {
+    backgroundColor: '#DCFCE7',
+    borderColor: '#86EFAC',
+  },
+  stylePillActiveLight: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#FDE68A',
+  },
+  stylePillActiveHeavy: {
+    backgroundColor: '#FFEDD5',
+    borderColor: '#FDBA74',
+  },
+  stylePillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  stylePillTextActive: {
+    color: '#0F172A',
+    fontWeight: '800',
+  },
   actionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -597,9 +684,26 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   controlBtnLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#475569',
+  },
+  barcodeBtn: {
+    flex: 1,
+    backgroundColor: '#EEF2FF',
+    paddingVertical: 14,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+    gap: 6,
+  },
+  barcodeBtnLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#4338CA',
   },
   proBtn: {
     flex: 1,
@@ -611,10 +715,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderWidth: 1,
     borderColor: '#FCD34D',
-    gap: 8,
+    gap: 6,
   },
   proBtnLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     color: '#D97706',
   },

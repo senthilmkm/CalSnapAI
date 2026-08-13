@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.senthilkannan.calsnapai",
-      "buildNumber": "144",
+      "buildNumber": "146",
       "infoPlist": {
         "NSCameraUsageDescription": "CalSnap AI needs camera access to identify food items and estimate calories instantly.",
         "NSMicrophoneUsageDescription": "CalSnap AI needs microphone access to record quick voice notes about your meal.",
@@ -31,6 +31,7 @@
       },
       "package": "com.senthilkannan.calsnapai",
       "permissions": [
+        "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
       ]
     },
@@ -41,6 +42,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-camera",
       "expo-image-picker",
       "expo-notifications"
     ],
