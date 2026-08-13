@@ -128,6 +128,13 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
             Zero-friction food logging, weekly calorie banking, and interactive oil sliders.
           </Text>
 
+          {/* High-Converting Value Callout Banner */}
+          <View style={styles.coffeeBanner}>
+            <Text style={styles.coffeeBannerText}>
+              ☕ Less than a cup of coffee per month (<Text style={{ fontWeight: '900', color: '#4F46E5' }}>$3.99/mo</Text>)
+            </Text>
+          </View>
+
           {/* Premium Feature Highlights */}
           <View style={styles.featuresCard}>
             {pricingConfig.paywall_features.map((feature, idx) => (
@@ -288,9 +295,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748B',
     textAlign: 'center',
-    marginTop: 8,
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  coffeeBanner: {
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 14,
     marginBottom: 20,
-    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  coffeeBannerText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#3730A3',
+    textAlign: 'center',
   },
   featuresCard: {
     width: '100%',

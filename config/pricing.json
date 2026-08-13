@@ -3,16 +3,16 @@
   "banner_text": "🔥 Limited Time: 7-Day Free Trial Active",
   "monthly": {
     "price_id": "calsnap_monthly",
-    "display_price": "$7.99",
+    "display_price": "$9.99",
     "period": "/month",
-    "trial_days": 7
+    "trial_days": 0
   },
   "annual": {
     "price_id": "calsnap_yearly",
-    "display_price": "$24.99",
+    "display_price": "$47.99",
     "period": "/year",
-    "monthly_equivalent": "$2.08/mo",
-    "savings_badge": "SAVE 74%",
+    "monthly_equivalent": "$3.99/mo",
+    "savings_badge": "SAVE 60%",
     "trial_days": 7,
     "recommended": true
   },
