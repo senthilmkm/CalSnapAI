@@ -39,6 +39,7 @@ export default function SettingsScreen() {
   };
   const signInWithApple = useAppStore((state) => state.signInWithApple);
   const signOut = useAppStore((state) => state.signOut);
+  const setAIConsent = useAppStore((state) => state.setAIConsent);
 
   const notifications = useAppStore((state) => state.notifications);
   const updateNotifs = useAppStore((state) => state.updateNotificationSettings);
@@ -89,6 +90,12 @@ export default function SettingsScreen() {
       currentVal
     );
   };
+
+  const [isAppleAuthAvailable, setIsAppleAuthAvailable] = useState(false);
+
+  useEffect(() => {
+    AppleAuthentication.isAvailableAsync().then(setIsAppleAuthAvailable);
+  }, []);
 
   const handleAppleLogin = async () => {
     try {
@@ -181,14 +188,37 @@ export default function SettingsScreen() {
         )}
 
         {profile.is_guest ? (
-          <TouchableOpacity style={styles.appleBtn} onPress={handleAppleLogin} activeOpacity={0.85}>
-            <Text style={styles.appleBtnText}>🍏 Sign in with Apple</Text>
-          </TouchableOpacity>
+          isAppleAuthAvailable ? (
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+              cornerRadius={14}
+              style={styles.appleBtn}
+              onPress={handleAppleLogin}
+            />
+          ) : (
+            <TouchableOpacity style={styles.fallbackSignInBtn} onPress={handleAppleLogin} activeOpacity={0.85}>
+              <Text style={styles.fallbackSignInText}>Sign in with Apple</Text>
+            </TouchableOpacity>
+          )
         ) : (
           <TouchableOpacity style={styles.signOutBtn} onPress={signOut}>
             <Text style={styles.signOutText}>Sign Out Account</Text>
           </TouchableOpacity>
         )}
+
+        {/* AI Data Sharing Consent Control (Apple Guideline 5.1.1(i) / 5.1.2(i)) */}
+        <View style={[styles.settingRow, { marginTop: 14, borderBottomWidth: 0, paddingBottom: 0 }]}>
+          <View style={{ flex: 1, paddingRight: 10 }}>
+            <Text style={styles.rowLabel}>🤖 AI Data Processing Consent</Text>
+            <Text style={styles.rowSub}>Allows sending food photos & notes to Google Gemini AI for calculation.</Text>
+          </View>
+          <Switch
+            value={!!profile.has_consented_ai_data_sharing}
+            onValueChange={(val) => setAIConsent(val)}
+            trackColor={{ false: '#CBD5E1', true: '#4F46E5' }}
+          />
+        </View>
       </View>
 
       {/* Daily Nutrition & Calorie Goals */}
@@ -482,15 +512,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   appleBtn: {
+    width: '100%',
+    height: 48,
+  },
+  fallbackSignInBtn: {
     backgroundColor: '#000000',
-    paddingVertical: 14,
+    height: 48,
     borderRadius: 14,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  appleBtnText: {
+  fallbackSignInText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   signOutBtn: {
     backgroundColor: '#FEF2F2',

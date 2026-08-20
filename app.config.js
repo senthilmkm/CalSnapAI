@@ -19,6 +19,7 @@ module.exports = ({ config }) => {
       supportsTablet: false,
       bundleIdentifier: "com.senthilkannan.calsnapai",
       buildNumber: buildNumber,
+      usesAppleSignIn: true,
       infoPlist: {
         NSCameraUsageDescription: "CalSnap AI needs camera access to identify food items and estimate calories instantly.",
         NSMicrophoneUsageDescription: "CalSnap AI needs microphone access to record quick voice notes about your meal.",
@@ -47,7 +48,8 @@ module.exports = ({ config }) => {
       "expo-router",
       "expo-camera",
       "expo-image-picker",
-      "expo-notifications"
+      "expo-notifications",
+      "expo-apple-authentication"
     ],
     experiments: {
       typedRoutes: true

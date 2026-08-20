@@ -79,6 +79,7 @@ export interface UserProfile {
   streak_freeze_count: number;
   last_logged_date?: string;
   biometric_lock_enabled?: boolean;
+  has_consented_ai_data_sharing?: boolean;
   streak_freeze_saved_recently?: boolean;
   current_weight_kg?: number;
   weight_history?: WeightEntry[];

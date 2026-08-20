@@ -7,6 +7,7 @@ interface AppState {
   // User Profile & Auth
   profile: UserProfile;
   setProfile: (profile: Partial<UserProfile>) => void;
+  setAIConsent: (consented: boolean) => void;
   toggleBiometricLock: (enabled: boolean) => void;
   dismissStreakFreezeBanner: () => void;
   signInWithApple: (email: string) => void;
@@ -128,9 +129,13 @@ export const useAppStore = create<AppState>()(
         streak_days: 5,
         streak_freeze_count: 1,
         last_logged_date: new Date().toISOString().split('T')[0],
+        has_consented_ai_data_sharing: false,
       },
       setProfile: (updatedProfile) =>
         set((state) => ({ profile: { ...state.profile, ...updatedProfile } })),
+
+      setAIConsent: (consented) =>
+        set((state) => ({ profile: { ...state.profile, has_consented_ai_data_sharing: consented } })),
 
       toggleBiometricLock: (enabled) =>
         set((state) => ({ profile: { ...state.profile, biometric_lock_enabled: enabled } })),

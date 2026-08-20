@@ -7,155 +7,111 @@
   <style>
     :root {
       --primary: #4F46E5;
-      --primary-dark: #4338CA;
       --bg: #F8FAFC;
       --card-bg: #FFFFFF;
-      --text: #0F172A;
-      --text-muted: #64748B;
+      --text-main: #0F172A;
+      --text-sub: #64748B;
       --border: #E2E8F0;
     }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background-color: var(--bg);
-      color: var(--text);
-      line-height: 1.6;
+      color: var(--text-main);
       margin: 0;
       padding: 0;
+      line-height: 1.6;
     }
     .header {
-      background: linear-gradient(135deg, #4F46E5 0%, #6366F1 100%);
+      background: linear-gradient(135deg, #4F46E5 0%, #3730A3 100%);
       color: white;
-      padding: 40px 20px;
+      padding: 50px 20px;
       text-align: center;
     }
-    .header h1 {
-      margin: 0;
-      font-size: 2.2rem;
-      font-weight: 800;
-    }
-    .header p {
-      margin-top: 8px;
-      opacity: 0.9;
-      font-size: 1.1rem;
-    }
+    .header h1 { margin: 0; font-size: 32px; font-weight: 800; }
+    .header p { margin-top: 8px; font-size: 16px; opacity: 0.9; }
     .container {
       max-width: 800px;
-      margin: -20px auto 40px auto;
+      margin: -20px auto 60px;
       padding: 0 20px;
     }
     .card {
-      background: var(--card-bg);
-      border-radius: 16px;
-      padding: 36px;
-      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+      background-color: var(--card-bg);
+      border-radius: 20px;
+      padding: 35px;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
       border: 1px solid var(--border);
     }
-    .disclaimer-box {
-      background-color: #FEF2F2;
-      border-left: 4px solid #EF4444;
-      padding: 16px 20px;
+    h2 { color: var(--primary); font-size: 20px; margin-top: 25px; }
+    p, li { color: var(--text-sub); font-size: 15px; }
+    .highlight-box {
+      background-color: #EEF2FF;
+      border-left: 4px solid #4F46E5;
+      padding: 16px;
       border-radius: 8px;
-      margin-bottom: 28px;
+      margin: 16px 0;
     }
-    .disclaimer-box h3 {
-      margin: 0 0 6px 0;
-      color: #991B1B;
-      font-size: 1rem;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .disclaimer-box p {
-      margin: 0;
-      color: #B91C1C;
-      font-size: 0.95rem;
-      font-weight: 500;
-    }
-    h2 {
-      color: var(--primary);
-      font-size: 1.35rem;
-      margin-top: 28px;
-      margin-bottom: 12px;
-      border-bottom: 2px solid #EEF2FF;
-      padding-bottom: 6px;
-    }
-    p, li {
-      color: #334155;
-      font-size: 1rem;
-    }
-    ul {
-      padding-left: 20px;
-    }
-    .contact-card {
-      background: #EEF2FF;
-      border: 1px solid #C7D2FE;
-      padding: 20px;
-      border-radius: 12px;
-      margin-top: 30px;
-    }
-    .contact-card a {
-      color: var(--primary);
-      font-weight: 700;
-      text-decoration: none;
-    }
-    footer {
-      text-align: center;
-      padding: 20px;
-      color: var(--text-muted);
-      font-size: 0.875rem;
-    }
+    .footer { text-align: center; color: var(--text-sub); font-size: 13px; margin-top: 30px; }
   </style>
 </head>
 <body>
 
   <div class="header">
-    <h1>CalSnap AI</h1>
-    <p>Privacy Policy</p>
+    <h1>Privacy Policy</h1>
+    <p>CalSnap AI — Last Updated: August 20, 2026</p>
   </div>
 
   <div class="container">
     <div class="card">
-      
-      <!-- MANDATORY MEDICAL DISCLAIMER -->
-      <div class="disclaimer-box">
-        <h3>⚠️ Educational & Informational Purpose Only</h3>
-        <p>CalSnap AI is designed strictly for educational, self-tracking, and nutritional estimation purposes. CalSnap AI does NOT provide medical advice, diagnosis, treatment, or clinical counseling. Always consult a qualified physician or licensed healthcare provider regarding dietary decisions or medical conditions.</p>
-      </div>
+      <p>CalSnap AI ("we", "our", or "us") respects your privacy. This Privacy Policy explains how data is collected, used, and protected when you use our mobile application.</p>
 
-      <p><em>Effective Date: August 12, 2026</em></p>
-
-      <h2>1. Overview</h2>
-      <p>CalSnap AI ("we", "our", or "us") respects your privacy and is committed to protecting the personal data of our users. This Privacy Policy explains how your information is collected, used, and safeguarded when you use the CalSnap AI mobile application and related services.</p>
-
-      <h2>2. Information We Collect</h2>
+      <h2>1. Information We Collect & Process</h2>
       <ul>
-        <li><strong>Food Photo & Voice Data:</strong> When you snap a meal photo or dictate a meal voice note, the image or audio transcript is securely transmitted to our AI serverless proxy for nutrition estimation.</li>
-        <li><strong>User Profile & Biometrics:</strong> Biometric authentication (Face ID / Touch ID) is processed entirely on your local device via Apple LocalAuthentication APIs and is never transmitted to our servers.</li>
-        <li><strong>Local Storage:</strong> Your meal log history, customized staples, and personal calorie targets are stored locally on your device using encrypted storage.</li>
+        <li><strong>Food Photos & Images:</strong> Images of food captured via your camera or selected from your photo library are processed to identify ingredients, estimate weight, and compute nutritional values.</li>
+        <li><strong>Voice Transcripts & Text Entries:</strong> Spoken audio notes (transcribed locally) or custom text meal descriptions (e.g. "2 eggs, cooked in butter") entered to refine meal accuracy.</li>
+        <li><strong>User Identifiers:</strong> Anonymous user IDs or Sign in with Apple tokens used strictly to manage your account status and sync meal logs across your devices.</li>
+        <li><strong>Subscription & Purchase Data:</strong> Subscription status and purchase receipts managed securely via RevenueCat and Apple StoreKit 2.</li>
       </ul>
 
-      <h2>3. AI Processing & Google Cloud Security</h2>
-      <p>All photo and voice analysis is processed via an enterprise-grade Google Cloud proxy with Secret Manager isolation. We do not sell your personal images or meal logs to third parties. Data processed by AI models (such as Google Gemini) is strictly limited to generating caloric and macro estimations for your personal app experience.</p>
-
-      <h2>4. Data Retention & Control</h2>
-      <p>You maintain full control over your data. You can configure your meal log retention period (30 days, 90 days, 1 year, or keep forever) or purge all local photo cache and history anytime inside the Settings screen.</p>
-
-      <h2>5. Educational Purpose Disclaimer</h2>
-      <p>CalSnap AI uses advanced computer vision algorithms to estimate food portion sizes, oil intake, and nutritional macros. These estimations are mathematical approximations intended for general health tracking. CalSnap AI is not a medical device and must not be relied upon for medical dietary prescriptions.</p>
-
-      <h2>6. Contact Us</h2>
-      <div class="contact-card">
-        <strong>Questions or Privacy Inquiries?</strong><br>
-        If you have any questions regarding this Privacy Policy, please contact our support team at:
-        <br><br>
-        📧 Email: <a href="mailto:senthil930@gmail.com">senthil930@gmail.com</a>
+      <h2>2. Third-Party AI Services & Data Sharing (Apple Guidelines 5.1.1(i) / 5.1.2(i))</h2>
+      <div class="highlight-box">
+        <p style="margin: 0; color: #3730A3; font-weight: 600;">
+          <strong>Explicit Third-Party AI Disclosure:</strong> CalSnap AI utilizes <strong>Google Gemini AI</strong> as a third-party AI provider for food recognition and nutritional analysis.
+        </p>
       </div>
+      <p>When you trigger a food scan, photo upload, or meal description query, the following data is transmitted to <strong>Google Gemini AI</strong>:</p>
+      <ul>
+        <li>Food photos and image base64 data.</li>
+        <li>Transcribed voice notes and custom meal description text.</li>
+        <li>Selected cooking style preferences (e.g., raw, light oil, heavy oil).</li>
+      </ul>
+      <p><strong>Equal Data Protection Guarantees:</strong> Our third-party AI service provider (Google Gemini AI) processes data under strict enterprise privacy agreements. Specifically:</p>
+      <ul>
+        <li>All data is transmitted securely via HTTPS (TLS 1.3 encryption).</li>
+        <li><strong>No Public AI Training:</strong> Your food photos, voice transcripts, and text queries are <strong>NEVER</strong> used to train public or generalized AI models.</li>
+        <li>Data is processed ephemerally for instant nutritional estimation and is not sold, rented, or shared with data brokers or advertising networks.</li>
+      </ul>
 
+      <h2>3. In-App User Permission & Choice</h2>
+      <p>Before transmitting any photo or meal text to third-party AI services, CalSnap AI presents an in-app consent disclosure detailing what data is sent, who it is sent to, and how it is used. You can grant or revoke your AI data processing permission anytime inside the app under <strong>Settings → Account & Security → AI Data Processing Consent</strong>.</p>
+
+      <h2>4. Data Protection & Storage Isolation</h2>
+      <p>API keys and credentials are isolated inside encrypted Google Cloud Secret Manager infrastructure. Your meal logs and photo cache remain stored locally on your device or in your secure personal storage.</p>
+
+      <h2>5. No Third-Party Advertising or Tracking</h2>
+      <p>We do not display third-party advertisements, track your web activity across other apps or websites, or sell your health data.</p>
+
+      <h2>6. Data Retention & User Erasure Rights</h2>
+      <p>You have complete control over your data. You can clear your local photo cache or permanently erase all history anytime inside the app under <strong>Settings → History Retention & Storage → Delete All History</strong>.</p>
+
+      <h2>7. Contact Us</h2>
+      <p>If you have any questions regarding this Privacy Policy or data privacy practices, contact us at: <a href="mailto:support@calsnap.app" style="color: #4F46E5;">support@calsnap.app</a></p>
+    </div>
+
+    <div class="footer">
+      &copy; 2026 CalSnap AI. All rights reserved.
     </div>
   </div>
-
-  <footer>
-    &copy; 2026 CalSnap AI. All rights reserved. | Educational Purpose Only
-  </footer>
 
 </body>
 </html>

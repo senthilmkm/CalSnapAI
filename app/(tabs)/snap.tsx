@@ -10,6 +10,7 @@ import { OilSlider } from '../../components/OilSlider';
 import { PortionSlider } from '../../components/PortionSlider';
 import { PaywallModal } from '../../components/PaywallModal';
 import { BarcodeScannerModal } from '../../components/BarcodeScannerModal';
+import { AIDataConsentModal } from '../../components/AIDataConsentModal';
 import { sendInstantAsyncMealNotification } from '../../services/notifications';
 
 const FREE_DAILY_SNAP_LIMIT = 3;
@@ -22,9 +23,12 @@ export default function SnapScreen() {
   const [currentMealId, setCurrentMealId] = useState<string | null>(null);
   const [paywallVisible, setPaywallVisible] = useState(false);
   const [barcodeModalVisible, setBarcodeModalVisible] = useState(false);
+  const [aiConsentModalVisible, setAiConsentModalVisible] = useState(false);
+  const [pendingAIAction, setPendingAIAction] = useState<'camera' | 'gallery' | null>(null);
   const [cookingStyle, setCookingStyle] = useState<'raw' | 'light' | 'heavy'>('light');
 
   const profile = useAppStore((state) => state.profile);
+  const setAIConsent = useAppStore((state) => state.setAIConsent);
   const goals = useAppStore((state) => state.goals);
   const addMeal = useAppStore((state) => state.addMeal);
   const updateMealSliders = useAppStore((state) => state.updateMealSliders);
@@ -57,10 +61,48 @@ export default function SnapScreen() {
     return true;
   };
 
+  // AI Data Privacy & Sharing Consent Gate (Apple Guideline 5.1.1(i) / 5.1.2(i))
+  const ensureAIConsent = (action: 'camera' | 'gallery'): boolean => {
+    if (profile.has_consented_ai_data_sharing) {
+      return true;
+    }
+    setPendingAIAction(action);
+    setAiConsentModalVisible(true);
+    return false;
+  };
+
+  const handleConsentAgree = () => {
+    setAIConsent(true);
+    setAiConsentModalVisible(false);
+    const actionToRun = pendingAIAction;
+    setPendingAIAction(null);
+
+    // Seamless execution without re-tap or screen navigation confusion
+    if (actionToRun === 'camera') {
+      setTimeout(() => {
+        handleCameraSnap();
+      }, 300);
+    } else if (actionToRun === 'gallery') {
+      setTimeout(() => {
+        handlePickImage();
+      }, 300);
+    }
+  };
+
+  const handleConsentDecline = () => {
+    setAiConsentModalVisible(false);
+    setPendingAIAction(null);
+    Alert.alert(
+      'AI Analysis Disabled',
+      'Food recognition requires sending images to Google Gemini AI for calculation. You can grant permission anytime in Settings or when scanning a meal.'
+    );
+  };
+
   // Launch Native iOS Camera
   const handleCameraSnap = async () => {
     if (analyzing) return;
     if (!verifyPaywallGate()) return;
+    if (!ensureAIConsent('camera')) return;
 
     try {
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
@@ -94,6 +136,7 @@ export default function SnapScreen() {
   const handlePickImage = async () => {
     if (analyzing) return;
     if (!verifyPaywallGate()) return;
+    if (!ensureAIConsent('gallery')) return;
 
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -383,6 +426,13 @@ export default function SnapScreen() {
         visible={barcodeModalVisible}
         onClose={() => setBarcodeModalVisible(false)}
         onMealLogged={(meal) => setCurrentMealId(meal.id)}
+      />
+
+      {/* AI Data Processing & Privacy Consent Modal (Guideline 5.1.1(i) / 5.1.2(i)) */}
+      <AIDataConsentModal
+        visible={aiConsentModalVisible}
+        onAgree={handleConsentAgree}
+        onDecline={handleConsentDecline}
       />
     </View>
   );
