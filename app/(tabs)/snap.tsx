@@ -63,7 +63,8 @@ export default function SnapScreen() {
 
   // AI Data Privacy & Sharing Consent Gate (Apple Guideline 5.1.1(i) / 5.1.2(i))
   const ensureAIConsent = (action: 'camera' | 'gallery'): boolean => {
-    if (profile.has_consented_ai_data_sharing) {
+    const hasConsented = !!useAppStore.getState().profile.has_consented_ai_data_sharing;
+    if (hasConsented) {
       return true;
     }
     setPendingAIAction(action);
@@ -71,39 +72,7 @@ export default function SnapScreen() {
     return false;
   };
 
-  const handleConsentAgree = () => {
-    setAIConsent(true);
-    setAiConsentModalVisible(false);
-    const actionToRun = pendingAIAction;
-    setPendingAIAction(null);
-
-    // Seamless execution without re-tap or screen navigation confusion
-    if (actionToRun === 'camera') {
-      setTimeout(() => {
-        handleCameraSnap();
-      }, 300);
-    } else if (actionToRun === 'gallery') {
-      setTimeout(() => {
-        handlePickImage();
-      }, 300);
-    }
-  };
-
-  const handleConsentDecline = () => {
-    setAiConsentModalVisible(false);
-    setPendingAIAction(null);
-    Alert.alert(
-      'AI Analysis Disabled',
-      'Food recognition requires sending images to Google Gemini AI for calculation. You can grant permission anytime in Settings or when scanning a meal.'
-    );
-  };
-
-  // Launch Native iOS Camera
-  const handleCameraSnap = async () => {
-    if (analyzing) return;
-    if (!verifyPaywallGate()) return;
-    if (!ensureAIConsent('camera')) return;
-
+  const executeCameraLaunch = async () => {
     try {
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
       if (!permissionResult.granted) {
@@ -132,12 +101,7 @@ export default function SnapScreen() {
     }
   };
 
-  // Launch Native iOS Gallery Picker
-  const handlePickImage = async () => {
-    if (analyzing) return;
-    if (!verifyPaywallGate()) return;
-    if (!ensureAIConsent('gallery')) return;
-
+  const executeGalleryLaunch = async () => {
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
@@ -160,6 +124,49 @@ export default function SnapScreen() {
     } catch (err) {
       Alert.alert('Image Error', 'Failed to load photo.');
     }
+  };
+
+  const handleConsentAgree = () => {
+    setAIConsent(true);
+    setAiConsentModalVisible(false);
+    const actionToRun = pendingAIAction;
+    setPendingAIAction(null);
+
+    // Direct execution of pending action after consent granted
+    if (actionToRun === 'camera') {
+      setTimeout(() => {
+        executeCameraLaunch();
+      }, 250);
+    } else if (actionToRun === 'gallery') {
+      setTimeout(() => {
+        executeGalleryLaunch();
+      }, 250);
+    }
+  };
+
+  const handleConsentDecline = () => {
+    setAiConsentModalVisible(false);
+    setPendingAIAction(null);
+    Alert.alert(
+      'AI Analysis Disabled',
+      'Food recognition requires sending images to Google Gemini AI for calculation. You can grant permission anytime in Settings or when scanning a meal.'
+    );
+  };
+
+  // Launch Native iOS Camera
+  const handleCameraSnap = async () => {
+    if (analyzing) return;
+    if (!verifyPaywallGate()) return;
+    if (!ensureAIConsent('camera')) return;
+    await executeCameraLaunch();
+  };
+
+  // Launch Native iOS Gallery Picker
+  const handlePickImage = async () => {
+    if (analyzing) return;
+    if (!verifyPaywallGate()) return;
+    if (!ensureAIConsent('gallery')) return;
+    await executeGalleryLaunch();
   };
 
   const processImageAnalysis = async (base64: string, uri: string) => {
