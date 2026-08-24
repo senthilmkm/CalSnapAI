@@ -53,7 +53,11 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
           const { customerInfo } = await Purchases.purchasePackage(pkgToPurchase);
           if (typeof customerInfo.entitlements.active['pro_access'] !== 'undefined') {
             setProfile({ is_pro_subscriber: true, is_guest: false });
-            Alert.alert('🎉 Welcome to CalSnap AI Pro!', 'Your 7-Day Free Trial is now active.');
+            if (selectedPlan === 'annual') {
+              Alert.alert('🎉 Welcome to CalSnap AI Pro!', 'Your 7-Day Free Trial is now active. You will not be charged until the trial ends.');
+            } else {
+              Alert.alert('🎉 Welcome to CalSnap AI Pro!', 'Your Pro subscription is now active.');
+            }
             onClose();
             return;
           }
@@ -119,7 +123,9 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
           <View style={styles.badgeRow}>
             <View style={styles.badge}>
               <Sparkles size={14} color="#6366F1" />
-              <Text style={styles.badgeText}>{pricingConfig.banner_text}</Text>
+              <Text style={styles.badgeText}>
+                {selectedPlan === 'annual' ? '🔥 7-Day Free Trial on Yearly Plan' : '✨ CalSnap AI Pro — Unlimited Access'}
+              </Text>
             </View>
           </View>
 
@@ -177,7 +183,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
                   {selectedPlan === 'annual' && <Check size={14} color="#FFF" />}
                 </View>
               </View>
-              <Text style={styles.trialNote}>Includes {pricingConfig.annual.trial_days}-Day Free Trial ($0 today)</Text>
+              <Text style={styles.trialNote}>Includes 7-Day Free Trial ($0.00 today)</Text>
             </TouchableOpacity>
 
             {/* Monthly Option */}
@@ -199,7 +205,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
                   {selectedPlan === 'monthly' && <Check size={14} color="#FFF" />}
                 </View>
               </View>
-              <Text style={styles.trialNote}>Cancel anytime in Settings</Text>
+              <Text style={styles.monthlyNote}>Billed monthly • Cancel anytime in Settings</Text>
             </TouchableOpacity>
           </View>
 
@@ -210,14 +216,22 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
             ) : (
               <>
                 <Zap size={20} color="#FFF" style={{ marginRight: 8 }} />
-                <Text style={styles.ctaText}>Start My {pricingConfig.annual.trial_days}-Day Free Trial — $0.00</Text>
+                <Text style={styles.ctaText}>
+                  {selectedPlan === 'annual'
+                    ? `Start 7-Day Free Trial — Then ${packages.annual?.product.priceString || pricingConfig.annual.display_price}/yr`
+                    : `Subscribe for ${packages.monthly?.product.priceString || pricingConfig.monthly.display_price} / Month`}
+                </Text>
               </>
             )}
           </TouchableOpacity>
 
           <View style={styles.guaranteeRow}>
             <ShieldCheck size={16} color="#10B981" />
-            <Text style={styles.guaranteeText}>No commitment. Cancel anytime in 1 tap.</Text>
+            <Text style={styles.guaranteeText}>
+              {selectedPlan === 'annual'
+                ? '7 days free, then renews annually. Cancel anytime in 1 tap.'
+                : 'Billed monthly. No commitment. Cancel anytime in 1 tap.'}
+            </Text>
           </View>
 
           {/* Mandatory Apple Subscription Legal Footer (Guideline 3.1.2) */}
@@ -395,6 +409,12 @@ const styles = StyleSheet.create({
   trialNote: {
     fontSize: 12,
     color: '#4F46E5',
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  monthlyNote: {
+    fontSize: 12,
+    color: '#64748B',
     fontWeight: '600',
     marginTop: 8,
   },

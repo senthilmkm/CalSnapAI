@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.senthilkannan.calsnapai",
-      "buildNumber": "146",
+      "buildNumber": "147",
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSCameraUsageDescription": "CalSnap AI needs camera access to identify food items and estimate calories instantly.",
