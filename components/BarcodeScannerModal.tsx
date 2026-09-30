@@ -18,6 +18,7 @@ import * as Haptics from 'expo-haptics';
 import { fetchProductByBarcode } from '../services/barcode';
 import { useAppStore } from '../services/storage';
 import { BarcodeProduct, MealRecord } from '../types/nutrition';
+import { PaywallModal } from './PaywallModal';
 
 interface BarcodeScannerModalProps {
   visible: boolean;
@@ -32,8 +33,11 @@ export function BarcodeScannerModal({ visible, onClose, onMealLogged }: BarcodeS
   const [torchEnabled, setTorchEnabled] = useState(false);
   const [scannedProduct, setScannedProduct] = useState<BarcodeProduct | null>(null);
   const [customCalorieInput, setCustomCalorieInput] = useState<string>('');
+  const [paywallVisible, setPaywallVisible] = useState<boolean>(false);
 
   const addMeal = useAppStore((state) => state.addMeal);
+  const profile = useAppStore((state) => state.profile);
+  const getTodayMeals = useAppStore((state) => state.getTodayMeals);
 
   const handleToggleTorch = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -42,6 +46,13 @@ export function BarcodeScannerModal({ visible, onClose, onMealLogged }: BarcodeS
 
   const handleBarcodeScanned = async (result: BarcodeScanningResult) => {
     if (scanned || loading) return;
+    const todayCount = getTodayMeals().length;
+    if (!profile.is_pro_subscriber && todayCount >= 1) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      setPaywallVisible(true);
+      return;
+    }
+
     setScanned(true);
     setLoading(true);
 
@@ -293,6 +304,7 @@ export function BarcodeScannerModal({ visible, onClose, onMealLogged }: BarcodeS
           </View>
         )}
       </View>
+      <PaywallModal visible={paywallVisible} onClose={() => setPaywallVisible(false)} />
     </Modal>
   );
 }

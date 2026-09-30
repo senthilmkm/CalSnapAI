@@ -4,9 +4,11 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 interface OilSliderProps {
   currentOilGrams: number;
   onChangeOil: (grams: number) => void;
+  isPro?: boolean;
+  onPressLock?: () => void;
 }
 
-export const OilSlider: React.FC<OilSliderProps> = ({ currentOilGrams, onChangeOil }) => {
+export const OilSlider: React.FC<OilSliderProps> = ({ currentOilGrams, onChangeOil, isPro = true, onPressLock }) => {
   const options = [
     { label: 'None (0g)', grams: 0, cals: '+0 kcal' },
     { label: 'Light (5g)', grams: 5, cals: '+45 kcal' },
@@ -17,7 +19,10 @@ export const OilSlider: React.FC<OilSliderProps> = ({ currentOilGrams, onChangeO
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.title}>🫒 Cooking Oil & Sauces</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={styles.title}>🫒 Cooking Oil & Sauces</Text>
+          {!isPro && <Text style={styles.lockBadge}>🔒 PRO</Text>}
+        </View>
         <Text style={styles.badge}>{currentOilGrams}g oil ({currentOilGrams * 9} kcal)</Text>
       </View>
 
@@ -28,7 +33,13 @@ export const OilSlider: React.FC<OilSliderProps> = ({ currentOilGrams, onChangeO
             <TouchableOpacity
               key={opt.grams}
               style={[styles.optionBtn, isSelected && styles.selectedBtn]}
-              onPress={() => onChangeOil(opt.grams)}
+              onPress={() => {
+                if (!isPro && onPressLock) {
+                  onPressLock();
+                } else {
+                  onChangeOil(opt.grams);
+                }
+              }}
               activeOpacity={0.8}
             >
               <Text style={[styles.optionLabel, isSelected && styles.selectedLabel]}>{opt.label}</Text>
@@ -59,6 +70,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#0F172A',
+  },
+  lockBadge: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#D97706',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
   badge: {
     fontSize: 12,

@@ -5,6 +5,7 @@ import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../../services/storage';
 import { exportNutritionPDFReport, exportNutritionCSVReport } from '../../services/pdfExport';
 import { WeightTrendChart } from '../../components/WeightTrendChart';
+import { PaywallModal } from '../../components/PaywallModal';
 
 const SCREEN_W = Dimensions.get('window').width;
 const BAR_AREA_W = SCREEN_W - 56; // 20px padding each side + 16px internal
@@ -23,12 +24,19 @@ function getLastDays(numDays: number): { key: string; label: string }[] {
 
 export default function InsightsScreen() {
   const [exporting, setExporting] = useState(false);
+  const [paywallVisible, setPaywallVisible] = useState(false);
   const [chartRange, setChartRange] = useState<7 | 14 | 30>(7);
   const meals = useAppStore((state) => state.meals);
   const goals = useAppStore((state) => state.goals);
   const profile = useAppStore((state) => state.profile);
 
   const handleExportPDF = async () => {
+    if (!profile?.is_pro_subscriber) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setPaywallVisible(true);
+      return;
+    }
+
     try {
       setExporting(true);
       await exportNutritionPDFReport(meals, goals);
@@ -289,13 +297,17 @@ export default function InsightsScreen() {
         <View style={styles.exportBtnRow}>
           <TouchableOpacity style={styles.pdfBtn} onPress={handleExportPDF} disabled={exporting} activeOpacity={0.85}>
             <Download size={16} color="#FFF" style={{ marginRight: 6 }} />
-            <Text style={styles.pdfBtnText}>Export PDF</Text>
+            <Text style={styles.pdfBtnText}>
+              {profile?.is_pro_subscriber ? 'Export PDF' : '🔒 Export PDF (Pro)'}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.csvBtn} onPress={handleExportCSV} disabled={exporting} activeOpacity={0.85}>
             <Text style={styles.csvBtnText}>Export CSV</Text>
           </TouchableOpacity>
         </View>
       </View>
+
+      <PaywallModal visible={paywallVisible} onClose={() => setPaywallVisible(false)} />
     </ScrollView>
   );
 }

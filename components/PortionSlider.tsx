@@ -4,9 +4,11 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 interface PortionSliderProps {
   multiplier: number;
   onChangeMultiplier: (multiplier: number) => void;
+  isPro?: boolean;
+  onPressLock?: () => void;
 }
 
-export const PortionSlider: React.FC<PortionSliderProps> = ({ multiplier, onChangeMultiplier }) => {
+export const PortionSlider: React.FC<PortionSliderProps> = ({ multiplier, onChangeMultiplier, isPro = true, onPressLock }) => {
   const portions = [
     { label: '50%', val: 0.5 },
     { label: '75%', val: 0.75 },
@@ -18,7 +20,10 @@ export const PortionSlider: React.FC<PortionSliderProps> = ({ multiplier, onChan
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.title}>🍽️ Portion Scale</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={styles.title}>🍽️ Portion Scale</Text>
+          {!isPro && <Text style={styles.lockBadge}>🔒 PRO</Text>}
+        </View>
         <Text style={styles.badge}>{Math.round(multiplier * 100)}% of plate</Text>
       </View>
 
@@ -29,7 +34,13 @@ export const PortionSlider: React.FC<PortionSliderProps> = ({ multiplier, onChan
             <TouchableOpacity
               key={p.val}
               style={[styles.optionBtn, isSelected && styles.selectedBtn]}
-              onPress={() => onChangeMultiplier(p.val)}
+              onPress={() => {
+                if (!isPro && onPressLock) {
+                  onPressLock();
+                } else {
+                  onChangeMultiplier(p.val);
+                }
+              }}
               activeOpacity={0.8}
             >
               <Text style={[styles.optionLabel, isSelected && styles.selectedLabel]}>{p.label}</Text>
@@ -60,6 +71,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#0F172A',
+  },
+  lockBadge: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#4F46E5',
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
   badge: {
     fontSize: 12,

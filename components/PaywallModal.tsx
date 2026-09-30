@@ -49,28 +49,31 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
     try {
       if (Platform.OS === 'ios') {
         const pkgToPurchase = selectedPlan === 'annual' ? packages.annual : packages.monthly;
-        if (pkgToPurchase) {
-          const { customerInfo } = await Purchases.purchasePackage(pkgToPurchase);
-          if (typeof customerInfo.entitlements.active['pro_access'] !== 'undefined') {
-            setProfile({ is_pro_subscriber: true, is_guest: false });
-            if (selectedPlan === 'annual') {
-              Alert.alert('🎉 Welcome to CalSnap AI Pro!', 'Your 7-Day Free Trial is now active. You will not be charged until the trial ends.');
-            } else {
-              Alert.alert('🎉 Welcome to CalSnap AI Pro!', 'Your Pro subscription is now active.');
-            }
-            onClose();
-            return;
-          }
+        if (!pkgToPurchase) {
+          Alert.alert('Store Unavailable', 'Subscription plans are currently loading from the App Store. Please check your network connection and try again.');
+          return;
         }
+
+        const { customerInfo } = await Purchases.purchasePackage(pkgToPurchase);
+        if (typeof customerInfo.entitlements.active['pro_access'] !== 'undefined') {
+          setProfile({ is_pro_subscriber: true, is_guest: false });
+          if (selectedPlan === 'annual') {
+            Alert.alert('🎉 Welcome to CalSnap AI Pro!', 'Your 7-Day Free Trial is now active. You will not be charged until the trial ends.');
+          } else {
+            Alert.alert('🎉 Welcome to CalSnap AI Pro!', 'Your Pro subscription is now active.');
+          }
+          onClose();
+          return;
+        } else {
+          Alert.alert('Purchase Pending', 'Your purchase was completed, but Pro status is not active yet.');
+          return;
+        }
+      } else {
+        Alert.alert('In-App Purchases', 'In-App Purchases are configured for iOS App Store via RevenueCat.');
       }
-      
-      // Fallback / Demo Activation
-      signInWithApple('pro.subscriber@apple.com');
-      Alert.alert('🎉 Welcome to CalSnap AI Pro!', 'Your Pro subscription is now active.');
-      onClose();
     } catch (e: any) {
       if (!e.userCancelled) {
-        Alert.alert('Purchase Note', e.message || 'Unable to complete checkout. Please try again.');
+        Alert.alert('Purchase Error', e.message || 'Unable to complete checkout. Please try again.');
       }
     } finally {
       setLoading(false);

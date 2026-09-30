@@ -15,6 +15,7 @@ import { Plus, Zap, Check, X, Trash2 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../services/storage';
 import { StapleItem } from '../types/nutrition';
+import { PaywallModal } from './PaywallModal';
 
 interface StaplesBarProps {
   selectedDateStr: string;
@@ -25,8 +26,11 @@ export function StaplesBar({ selectedDateStr }: StaplesBarProps) {
   const logStapleAsMeal = useAppStore((state) => state.logStapleAsMeal);
   const addStaple = useAppStore((state) => state.addStaple);
   const deleteStaple = useAppStore((state) => state.deleteStaple);
+  const profile = useAppStore((state) => state.profile);
+  const getMealsForDate = useAppStore((state) => state.getMealsForDate);
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [paywallVisible, setPaywallVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Form states for new custom staple
@@ -39,6 +43,13 @@ export function StaplesBar({ selectedDateStr }: StaplesBarProps) {
   const [mealType, setMealType] = useState<'Breakfast' | 'Lunch' | 'Dinner' | 'Snack'>('Breakfast');
 
   const handleTapStaple = (staple: StapleItem) => {
+    const todayCount = getMealsForDate(selectedDateStr).length;
+    if (!profile.is_pro_subscriber && todayCount >= 1) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      setPaywallVisible(true);
+      return;
+    }
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     logStapleAsMeal(staple, selectedDateStr);
 
@@ -223,6 +234,8 @@ export function StaplesBar({ selectedDateStr }: StaplesBarProps) {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <PaywallModal visible={paywallVisible} onClose={() => setPaywallVisible(false)} />
     </View>
   );
 }

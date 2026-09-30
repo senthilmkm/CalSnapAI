@@ -13,7 +13,7 @@ import { BarcodeScannerModal } from '../../components/BarcodeScannerModal';
 import { AIDataConsentModal } from '../../components/AIDataConsentModal';
 import { sendInstantAsyncMealNotification } from '../../services/notifications';
 
-const FREE_DAILY_SNAP_LIMIT = 3;
+const FREE_DAILY_SNAP_LIMIT = 1;
 
 export default function SnapScreen() {
   const [analyzing, setAnalyzing] = useState(false);
@@ -131,6 +131,8 @@ export default function SnapScreen() {
     setAiConsentModalVisible(false);
     const actionToRun = pendingAIAction;
     setPendingAIAction(null);
+
+    if (!verifyPaywallGate()) return;
 
     // Direct execution of pending action after consent granted
     if (actionToRun === 'camera') {
@@ -266,7 +268,7 @@ export default function SnapScreen() {
         <TouchableOpacity style={styles.quotaBadge} onPress={() => isFreeTier && setPaywallVisible(true)}>
           <Sparkles size={14} color={isFreeTier ? '#F59E0B' : '#10B981'} />
           <Text style={[styles.quotaText, { color: isFreeTier ? '#D97706' : '#065F46' }]}>
-            {isFreeTier ? `${snapsRemaining}/3 Free Snaps` : 'PRO UNLIMITED'}
+            {isFreeTier ? `${snapsRemaining}/${FREE_DAILY_SNAP_LIMIT} Free Snap` : 'PRO UNLIMITED'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -406,11 +408,15 @@ export default function SnapScreen() {
             {/* Interactive Portion & Oil Sliders */}
             <PortionSlider
               multiplier={activeMeal.portion_multiplier}
+              isPro={profile.is_pro_subscriber}
+              onPressLock={() => setPaywallVisible(true)}
               onChangeMultiplier={(val: number) => updateMealSliders(activeMeal.id, val, activeMeal.estimated_oil_g)}
             />
 
             <OilSlider
               currentOilGrams={activeMeal.estimated_oil_g}
+              isPro={profile.is_pro_subscriber}
+              onPressLock={() => setPaywallVisible(true)}
               onChangeOil={(val: number) => updateMealSliders(activeMeal.id, activeMeal.portion_multiplier, val)}
             />
 

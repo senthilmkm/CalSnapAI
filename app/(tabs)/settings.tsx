@@ -282,7 +282,7 @@ export default function SettingsScreen() {
         <Text style={styles.planStatus}>
           {profile.is_pro_subscriber
             ? `🎉 Active Plan: CalSnap AI Pro (${pricingConfig.monthly.display_price}/mo or ${pricingConfig.annual.display_price}/yr)`
-            : 'Free Tier (3 AI Snaps / Day)'}
+            : 'Free Tier (1 AI Snap / Day)'}
         </Text>
         <TouchableOpacity style={styles.manageSubBtn} onPress={() => setPaywallVisible(true)}>
           <Text style={styles.manageSubText}>{profile.is_pro_subscriber ? 'Manage Subscription' : 'Upgrade to Unlimited Pro'}</Text>

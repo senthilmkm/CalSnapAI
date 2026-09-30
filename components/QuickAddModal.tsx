@@ -17,6 +17,7 @@ import { X, Check, Zap, PlusCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../services/storage';
 import { MealRecord } from '../types/nutrition';
+import { PaywallModal } from './PaywallModal';
 
 interface QuickAddModalProps {
   visible: boolean;
@@ -37,8 +38,11 @@ export function QuickAddModal({ visible, onClose, onMealLogged }: QuickAddModalP
   const [proteinInput, setProteinInput] = useState<string>('');
   const [carbsInput, setCarbsInput] = useState<string>('');
   const [fatInput, setFatInput] = useState<string>('');
+  const [paywallVisible, setPaywallVisible] = useState<boolean>(false);
 
   const addMeal = useAppStore((state) => state.addMeal);
+  const profile = useAppStore((state) => state.profile);
+  const getTodayMeals = useAppStore((state) => state.getTodayMeals);
 
   const handleApplyPreset = (preset: typeof PRESET_CHIPS[0]) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -49,6 +53,13 @@ export function QuickAddModal({ visible, onClose, onMealLogged }: QuickAddModalP
   };
 
   const handleSaveQuickMeal = () => {
+    const todayCount = getTodayMeals().length;
+    if (!profile.is_pro_subscriber && todayCount >= 1) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      setPaywallVisible(true);
+      return;
+    }
+
     const cals = parseInt(caloriesInput, 10);
     if (isNaN(cals) || cals <= 0) {
       Alert.alert('Invalid Calories', 'Please enter a valid calorie amount.');
@@ -213,6 +224,7 @@ export function QuickAddModal({ visible, onClose, onMealLogged }: QuickAddModalP
       </KeyboardAvoidingView>
     </View>
   </TouchableWithoutFeedback>
+  <PaywallModal visible={paywallVisible} onClose={() => setPaywallVisible(false)} />
 </Modal>
 );
 }
