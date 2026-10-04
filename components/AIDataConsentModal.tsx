@@ -44,9 +44,15 @@ export const AIDataConsentModal: React.FC<AIDataConsentModalProps> = ({ visible,
             <ShieldCheck size={16} color="#4F46E5" />
             <Text style={styles.badgeText}>Data Privacy & Protection</Text>
           </View>
-          <TouchableOpacity style={styles.closeBtn} onPress={handleDeclinePress} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <X size={20} color="#64748B" />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <TouchableOpacity style={styles.headerAllowBtn} onPress={handleAgreePress}>
+              <CheckCircle2 size={16} color="#FFFFFF" />
+              <Text style={styles.headerAllowText}>Allow</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.closeBtn} onPress={handleDeclinePress} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <X size={20} color="#64748B" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -167,6 +173,20 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     padding: 6,
+  },
+  headerAllowBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4F46E5',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 4,
+  },
+  headerAllowText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   scrollContent: {
     padding: 20,

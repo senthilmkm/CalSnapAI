@@ -46,7 +46,7 @@ export function BarcodeScannerModal({ visible, onClose, onMealLogged }: BarcodeS
 
   const handleBarcodeScanned = async (result: BarcodeScanningResult) => {
     if (scanned || loading) return;
-    const todayCount = getTodayMeals().length;
+    const todayCount = useAppStore.getState().getTodayScanCount();
     if (!profile.is_pro_subscriber && todayCount >= 1) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       setPaywallVisible(true);

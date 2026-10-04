@@ -56,6 +56,11 @@ interface AppState {
   historySettings: HistorySettings;
   updateHistorySettings: (settings: Partial<HistorySettings>) => void;
 
+  // Security & Scan Limits
+  incrementDailyScan: () => void;
+  getTodayScanCount: () => number;
+  dismissWelcomeCard: () => void;
+
   // Derived Calculations
   getTodayMeals: () => MealRecord[];
   getTodayTotals: () => { calories: number; protein: number; carbs: number; fat: number };
@@ -126,9 +131,11 @@ export const useAppStore = create<AppState>()(
         id: 'guest-user-101',
         is_guest: true,
         is_pro_subscriber: false,
-        streak_days: 5,
+        streak_days: 0,
         streak_freeze_count: 1,
-        last_logged_date: new Date().toISOString().split('T')[0],
+        last_logged_date: undefined,
+        daily_scans_count: 0,
+        last_scan_date: new Date().toISOString().split('T')[0],
         has_consented_ai_data_sharing: false,
       },
       setProfile: (updatedProfile) =>
@@ -154,7 +161,7 @@ export const useAppStore = create<AppState>()(
             ...state.profile,
             email,
             is_guest: false,
-            is_pro_subscriber: true,
+            // is_pro_subscriber status is verified strictly by RevenueCat SDK listeners
           },
         })),
 
@@ -467,13 +474,39 @@ export const useAppStore = create<AppState>()(
         const dateKey = `${year}-${month}-${day}`;
 
         set((state) => {
-          let newStreak = state.profile.streak_days;
-          if (state.profile.last_logged_date !== dateKey) {
-            newStreak += 1;
+          let newStreak = state.profile.streak_days || 0;
+          let freezeCount = state.profile.streak_freeze_count ?? 1;
+          let freezeTriggered = false;
+
+          if (state.profile.last_logged_date && state.profile.last_logged_date !== dateKey) {
+            const lastDate = new Date(state.profile.last_logged_date);
+            const currentDate = new Date(dateKey);
+            const diffDays = Math.round((currentDate.getTime() - lastDate.getTime()) / (1000 * 3600 * 24));
+
+            if (diffDays === 1) {
+              newStreak += 1;
+            } else if (diffDays > 1) {
+              if (freezeCount > 0) {
+                freezeCount -= 1;
+                freezeTriggered = true;
+                newStreak += 1;
+              } else {
+                newStreak = 1;
+              }
+            }
+          } else if (!state.profile.last_logged_date) {
+            newStreak = 1;
           }
+
           return {
             meals: [newMeal, ...state.meals],
-            profile: { ...state.profile, streak_days: newStreak, last_logged_date: dateKey },
+            profile: {
+              ...state.profile,
+              streak_days: newStreak,
+              streak_freeze_count: freezeCount,
+              streak_freeze_saved_recently: freezeTriggered,
+              last_logged_date: dateKey,
+            },
           };
         });
 
@@ -548,6 +581,41 @@ export const useAppStore = create<AppState>()(
           return itemDateKey === targetDateKey;
         });
       },
+      incrementDailyScan: () => {
+        const todayStr = getTodayKey();
+        const nowIso = new Date().toISOString();
+        set((state) => {
+          const isSameDay = state.profile.last_scan_date === todayStr;
+          const currentCount = isSameDay ? (state.profile.daily_scans_count || 0) : 0;
+          return {
+            profile: {
+              ...state.profile,
+              last_scan_date: todayStr,
+              last_scan_timestamp: nowIso,
+              daily_scans_count: currentCount + 1,
+            },
+          };
+        });
+      },
+
+      getTodayScanCount: () => {
+        const todayStr = getTodayKey();
+        const state = get();
+        if (state.profile.last_scan_date !== todayStr) {
+          return 0;
+        }
+        const todayMeals = state.getTodayMeals();
+        if (todayMeals.length === 0) {
+          return 0;
+        }
+        const todayAIScanMeals = todayMeals.filter(
+          (m) => m && m.image_uri && m.image_uri.length > 20 && m.image_uri !== 'MOCK_IMAGE_DATA'
+        );
+        return Math.max(state.profile.daily_scans_count || 0, todayAIScanMeals.length);
+      },
+
+      dismissWelcomeCard: () =>
+        set((state) => ({ profile: { ...state.profile, has_seen_welcome_card: true } })),
 
       getTotalsForDate: (dateStr) => {
         const dateMeals = get().getMealsForDate(dateStr);

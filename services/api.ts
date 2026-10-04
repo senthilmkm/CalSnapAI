@@ -1,6 +1,6 @@
 import { MealRecord } from '../types/nutrition';
 
-const GCLOUD_FUNCTION_URL = 'https://us-central1-publictrading-platform-0626.cloudfunctions.net/analyzeMeal';
+const GCLOUD_FUNCTION_URL = 'https://us-central1-calsnap-ai-app.cloudfunctions.net/analyzeMeal';
 const CALSNAP_APP_SECRET = 'calsnap_sec_9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e';
 
 export interface AnalyzeMealParams {

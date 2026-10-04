@@ -43,13 +43,6 @@ export function StaplesBar({ selectedDateStr }: StaplesBarProps) {
   const [mealType, setMealType] = useState<'Breakfast' | 'Lunch' | 'Dinner' | 'Snack'>('Breakfast');
 
   const handleTapStaple = (staple: StapleItem) => {
-    const todayCount = getMealsForDate(selectedDateStr).length;
-    if (!profile.is_pro_subscriber && todayCount >= 1) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      setPaywallVisible(true);
-      return;
-    }
-
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     logStapleAsMeal(staple, selectedDateStr);
 
@@ -113,9 +106,8 @@ export function StaplesBar({ selectedDateStr }: StaplesBarProps) {
       <View style={styles.headerRow}>
         <View style={styles.titleGroup}>
           <Zap size={18} color="#4F46E5" />
-          <Text style={styles.title}>1-Tap Usual Staples</Text>
+          <Text style={styles.title}>1-Tap Staples</Text>
         </View>
-        <Text style={styles.subtext}>Log daily favorites in 0.1s</Text>
       </View>
 
       <ScrollView
@@ -164,9 +156,15 @@ export function StaplesBar({ selectedDateStr }: StaplesBarProps) {
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>✨ Add Custom 1-Tap Staple</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <X size={20} color="#64748B" />
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <TouchableOpacity style={styles.headerSaveBtn} onPress={handleSaveCustomStaple}>
+                  <Check size={16} color="#4F46E5" />
+                  <Text style={styles.headerSaveText}>Save</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.closeBtn} onPress={() => setModalVisible(false)}>
+                  <X size={20} color="#64748B" />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.inputGroup}>
@@ -295,8 +293,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
@@ -329,8 +327,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#C7D2FE',
+    borderWidth: 1.5,
+    borderColor: '#A5B4FC',
     borderStyle: 'dashed',
     gap: 4,
   },
@@ -356,6 +354,28 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerSaveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 4,
+  },
+  headerSaveText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#4F46E5',
   },
   modalTitle: {
     fontSize: 18,

@@ -78,8 +78,12 @@ export interface UserProfile {
   streak_days: number;
   streak_freeze_count: number;
   last_logged_date?: string;
+  daily_scans_count?: number;
+  last_scan_date?: string;
+  last_scan_timestamp?: string;
   biometric_lock_enabled?: boolean;
   has_consented_ai_data_sharing?: boolean;
+  has_seen_welcome_card?: boolean;
   streak_freeze_saved_recently?: boolean;
   current_weight_kg?: number;
   weight_history?: WeightEntry[];

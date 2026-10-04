@@ -6,6 +6,7 @@ import { useAppStore } from '../../services/storage';
 import { exportNutritionPDFReport, exportNutritionCSVReport } from '../../services/pdfExport';
 import { WeightTrendChart } from '../../components/WeightTrendChart';
 import { PaywallModal } from '../../components/PaywallModal';
+import pricingConfig from '../../config/pricing.json';
 
 const SCREEN_W = Dimensions.get('window').width;
 const BAR_AREA_W = SCREEN_W - 56; // 20px padding each side + 16px internal
@@ -153,7 +154,7 @@ export default function InsightsScreen() {
           </View>
           <View style={[styles.deficitPill, netWeeklyDeficit >= 0 ? styles.deficitPillPos : styles.deficitPillNeg]}>
             <Text style={[styles.deficitPillText, netWeeklyDeficit >= 0 ? styles.deficitPillTextPos : styles.deficitPillTextNeg]}>
-              {netWeeklyDeficit >= 0 ? `-${netWeeklyDeficit} kcal` : `+${Math.abs(netWeeklyDeficit)} kcal`}
+              {netWeeklyDeficit >= 0 ? `${netWeeklyDeficit} kcal Deficit` : `${Math.abs(netWeeklyDeficit)} kcal Surplus`}
             </Text>
           </View>
         </View>
@@ -298,7 +299,7 @@ export default function InsightsScreen() {
           <TouchableOpacity style={styles.pdfBtn} onPress={handleExportPDF} disabled={exporting} activeOpacity={0.85}>
             <Download size={16} color="#FFF" style={{ marginRight: 6 }} />
             <Text style={styles.pdfBtnText}>
-              {profile?.is_pro_subscriber ? 'Export PDF' : '🔒 Export PDF (Pro)'}
+              {profile?.is_pro_subscriber ? 'Export PDF' : pricingConfig.pdf_export_lock_notice || '🔒 Export PDF (Pro)'}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.csvBtn} onPress={handleExportCSV} disabled={exporting} activeOpacity={0.85}>
@@ -326,8 +327,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 16,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
@@ -343,11 +344,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 10,
-    borderWidth: 1,
+    borderWidth: 1.5,
   },
   deficitPillPos: {
     backgroundColor: '#EEF2FF',
-    borderColor: '#C7D2FE',
+    borderColor: '#A5B4FC',
   },
   deficitPillNeg: {
     backgroundColor: '#FEF2F2',
@@ -373,7 +374,7 @@ const styles = StyleSheet.create({
 
   bannerRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   bannerCard: {
-    flex: 1, borderRadius: 16, borderWidth: 1,
+    flex: 1, borderRadius: 16, borderWidth: 1.5,
     alignItems: 'center', paddingVertical: 14, gap: 4,
   },
   bannerNum: { fontSize: 22, fontWeight: '900' },
@@ -381,7 +382,7 @@ const styles = StyleSheet.create({
 
   card: {
     backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20,
-    marginBottom: 16, borderWidth: 1, borderColor: '#E2E8F0',
+    marginBottom: 16, borderWidth: 1.5, borderColor: '#CBD5E1',
   },
   cardHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
   cardTitle: { fontSize: 16, fontWeight: '800', color: '#0F172A' },

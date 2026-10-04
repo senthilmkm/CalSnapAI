@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import pricingConfig from '../../config/pricing.json';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
-import { Flame, Plus, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Calendar, Zap, ShieldCheck, Trash2, Sparkles, Scale, Clock, Timer } from 'lucide-react-native';
+import { Flame, Plus, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Calendar, Zap, ShieldCheck, Trash2, Sparkles, Scale, Clock, Timer, X } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../../services/storage';
 import { MacroRing } from '../../components/MacroRing';
@@ -33,6 +33,7 @@ export default function TodayDashboardScreen() {
   const deleteMeal = useAppStore((state) => state.deleteMeal);
   const updateMealSliders = useAppStore((state) => state.updateMealSliders);
   const dismissStreakFreezeBanner = useAppStore((state) => state.dismissStreakFreezeBanner);
+  const dismissWelcomeCard = useAppStore((state) => state.dismissWelcomeCard);
   const toggleFastState = useAppStore((state) => state.toggleFastState);
 
   const getTargetDateStr = (offset: number) => {
@@ -123,6 +124,27 @@ export default function TodayDashboardScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* 1-Line Minimal Onboarding Welcome Banner */}
+      {!profile.has_seen_welcome_card && (
+        <View style={styles.welcomeBanner}>
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Sparkles size={16} color="#4F46E5" />
+            <Text style={styles.welcomeBannerText}>
+              👋 <Text style={{ fontWeight: '800' }}>Welcome to CalSnap AI!</Text> Snap any plate photo or tap a staple to log your first meal.
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              dismissWelcomeCard();
+            }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <X size={16} color="#64748B" />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Date Navigation Strip */}
       <View style={styles.dateSelectorBar}>
@@ -231,208 +253,25 @@ export default function TodayDashboardScreen() {
           <View style={styles.macroPill}>
             <View style={[styles.dot, { backgroundColor: '#10B981' }]} />
             <Text style={styles.macroLabel}>Protein</Text>
-            <Text style={styles.macroVal}>{Number(totals.protein).toFixed(2)}/{goals.daily_protein_g}g</Text>
+            <Text style={styles.macroVal}>{Math.round(totals.protein)}/{goals.daily_protein_g}g</Text>
           </View>
 
           <View style={styles.macroPill}>
             <View style={[styles.dot, { backgroundColor: '#F59E0B' }]} />
             <Text style={styles.macroLabel}>Carbs</Text>
-            <Text style={styles.macroVal}>{Number(totals.carbs).toFixed(2)}/{goals.daily_carbs_g}g</Text>
+            <Text style={styles.macroVal}>{Math.round(totals.carbs)}/{goals.daily_carbs_g}g</Text>
           </View>
 
           <View style={styles.macroPill}>
             <View style={[styles.dot, { backgroundColor: '#8B5CF6' }]} />
             <Text style={styles.macroLabel}>Fat</Text>
-            <Text style={styles.macroVal}>{Number(totals.fat).toFixed(2)}/{goals.daily_fat_g}g</Text>
+            <Text style={styles.macroVal}>{Math.round(totals.fat)}/{goals.daily_fat_g}g</Text>
           </View>
         </View>
       </View>
 
       {/* 1-Tap Staples & Quick Log Bar */}
       <StaplesBar selectedDateStr={selectedDateStr} />
-
-      {/* Today's Meals Timeline */}
-      <View style={styles.timelineSection}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <Text style={styles.sectionTitle}>Today's Meals ({todayMeals.length})</Text>
-          {todayMeals.length > 0 && (
-            <TouchableOpacity
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                Alert.alert('Clear Today\'s Meals?', 'Are you sure you want to clear all logged meals for today?', [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Clear All',
-                    style: 'destructive',
-                    onPress: () => {
-                      todayMeals.forEach((m) => deleteMeal(m.id));
-                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    },
-                  },
-                ]);
-              }}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Text style={{ fontSize: 12, fontWeight: '700', color: '#EF4444' }}>Clear Today</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {todayMeals.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No meals logged yet for this date</Text>
-            <Text style={styles.emptySub}>Tap the camera button below to snap your plate in 1 second!</Text>
-          </View>
-        ) : (
-          (['Breakfast', 'Lunch', 'Dinner', 'Snack'] as const).map((mealType) => {
-            const categoryMeals = todayMeals.filter((m) => m.meal_type === mealType);
-            if (categoryMeals.length === 0) return null; // Zero empty clutter!
-
-            const categoryCals = categoryMeals.reduce((acc, m) => acc + (Number(m.total_calories) || 0), 0);
-            const categoryProtein = Math.round(categoryMeals.reduce((acc, m) => acc + (Number(m.total_protein_g) || 0), 0));
-            const icon = mealType === 'Breakfast' ? '🌅' : mealType === 'Lunch' ? '☀️' : mealType === 'Dinner' ? '🌙' : '🍎';
-
-            return (
-              <View key={mealType} style={{ marginBottom: 18 }}>
-                {/* Sleek Category Group Header */}
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, paddingHorizontal: 4 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={{ fontSize: 16 }}>{icon}</Text>
-                    <Text style={{ fontSize: 15, fontWeight: '800', color: '#1E293B' }}>{mealType}</Text>
-                    <View style={{ backgroundColor: '#EEF2FF', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, borderWidth: 1, borderColor: '#C7D2FE' }}>
-                      <Text style={{ fontSize: 11, fontWeight: '800', color: '#4F46E5' }}>{categoryMeals.length}</Text>
-                    </View>
-                  </View>
-
-                  <Text style={{ fontSize: 13, fontWeight: '800', color: '#4F46E5' }}>
-                    {Math.round(categoryCals)} <Text style={{ fontSize: 11, color: '#64748B', fontWeight: '700' }}>kcal</Text>
-                    <Text style={{ fontSize: 11, color: '#94A3B8', fontWeight: '600' }}> • {categoryProtein}g P</Text>
-                  </Text>
-                </View>
-
-                {/* Category Meal Cards */}
-                {categoryMeals.map((meal) => {
-                  const isExpanded = expandedMealId === meal.id;
-                  return (
-                    <View key={meal.id} style={styles.mealCard}>
-                      <TouchableOpacity
-                        onPress={() => {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          setDetailMeal(meal);
-                        }}
-                        activeOpacity={0.85}
-                      >
-                        <View style={styles.mealHeader}>
-                          {/* Food Photo Thumbnail */}
-                          {meal.image_uri && meal.image_uri.length > 20 && meal.image_uri !== 'MOCK_IMAGE_DATA' ? (
-                            <Image
-                              source={{ uri: meal.image_uri }}
-                              style={{
-                                width: 52,
-                                height: 52,
-                                borderRadius: 14,
-                                marginRight: 12,
-                                backgroundColor: '#F1F5F9',
-                                borderWidth: 1,
-                                borderColor: '#E2E8F0',
-                              }}
-                            />
-                          ) : (
-                            <View
-                              style={{
-                                width: 52,
-                                height: 52,
-                                borderRadius: 14,
-                                marginRight: 12,
-                                backgroundColor: '#EEF2FF',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                borderWidth: 1,
-                                borderColor: '#C7D2FE',
-                              }}
-                            >
-                              <Text style={{ fontSize: 24 }}>
-                                {meal.meal_type === 'Breakfast' ? '🍳' : meal.meal_type === 'Lunch' ? '🥗' : meal.meal_type === 'Dinner' ? '🍲' : '🍎'}
-                              </Text>
-                            </View>
-                          )}
-
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.mealDish}>{meal.dish_name}</Text>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
-                              <Text style={styles.mealMeta}>
-                                {new Date(meal.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </Text>
-                              <TouchableOpacity
-                                onPress={() => {
-                                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                                  setExpandedMealId(isExpanded ? null : meal.id);
-                                }}
-                                activeOpacity={0.7}
-                                style={{ backgroundColor: '#EEF2FF', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: '#C7D2FE' }}
-                              >
-                                <Text style={{ fontSize: 10, fontWeight: '800', color: '#4F46E5' }}>
-                                  {isExpanded ? '▼ Close Sliders' : '⚙️ Adjust Portion'}
-                                </Text>
-                              </TouchableOpacity>
-                            </View>
-                          </View>
-
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                            <Text style={styles.mealCals}>{meal.total_calories} kcal</Text>
-                            <TouchableOpacity
-                              onPress={() => {
-                                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                                deleteMeal(meal.id);
-                              }}
-                              activeOpacity={0.6}
-                              hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                              style={styles.trashBtn}
-                            >
-                              <Trash2 size={18} color="#EF4444" />
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-
-                        <View style={styles.mealMacroBar}>
-                          <Text style={styles.macroTag}>P: {Number(meal.total_protein_g).toFixed(2)}g</Text>
-                          <Text style={styles.macroTag}>C: {Number(meal.total_carbs_g).toFixed(2)}g</Text>
-                          <Text style={styles.macroTag}>F: {Number(meal.total_fat_g).toFixed(2)}g</Text>
-                          {meal.estimated_oil_g > 0 && <Text style={styles.oilTag}>🫒 {meal.estimated_oil_g}g oil</Text>}
-                        </View>
-                      </TouchableOpacity>
-
-                      {/* Expandable Recalibration Sliders */}
-                      {isExpanded && (
-                        <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderColor: '#E2E8F0' }}>
-                          <PortionSlider
-                            multiplier={meal.portion_multiplier || 1.0}
-                            isPro={profile.is_pro_subscriber}
-                            onPressLock={() => setPaywallVisible(true)}
-                            onChangeMultiplier={(mult) => {
-                              Haptics.selectionAsync();
-                              updateMealSliders(meal.id, mult, meal.estimated_oil_g || 0);
-                            }}
-                          />
-                          <OilSlider
-                            currentOilGrams={meal.estimated_oil_g || 0}
-                            isPro={profile.is_pro_subscriber}
-                            onPressLock={() => setPaywallVisible(true)}
-                            onChangeOil={(oil) => {
-                              Haptics.selectionAsync();
-                              updateMealSliders(meal.id, meal.portion_multiplier || 1.0, oil);
-                            }}
-                          />
-                        </View>
-                      )}
-                    </View>
-                  );
-                })}
-              </View>
-            );
-          })
-        )}
-      </View>
 
       {/* De-cluttered Accordion: Collapsible Health Utilities & Forecasts */}
       <TouchableOpacity
@@ -445,15 +284,19 @@ export default function TodayDashboardScreen() {
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Zap size={16} color="#4F46E5" />
-          <Text style={styles.utilityAccordionTitle}>
-            Health Utilities & Forecasts {showUtilities ? '' : '(Water, Fasting, Weight, Glucose)'}
-          </Text>
+          <Text style={styles.utilityAccordionTitle}>Health & Fasting Utilities</Text>
         </View>
-        {showUtilities ? <ChevronUp size={18} color="#4F46E5" /> : <ChevronDown size={18} color="#4F46E5" />}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Text style={{ fontSize: 11, fontWeight: '700', color: '#4F46E5' }}>
+            {showUtilities ? 'Hide' : 'Water, Weight, Fasting'}
+          </Text>
+          {showUtilities ? <ChevronUp size={16} color="#4F46E5" /> : <ChevronDown size={16} color="#4F46E5" />}
+        </View>
       </TouchableOpacity>
 
       {showUtilities && (
-        <View style={{ marginTop: 10 }}>
+        <View style={styles.utilityVaultCard}>
+          <Text style={styles.utilityVaultHeader}>🛠️ HEALTH UTILITIES VAULT</Text>
           {/* 3-Card Aesthetic Action Row: Weight, Fasting, Quick Add */}
           <View style={styles.quickCardsRow}>
             {/* Card 1: Scale Weight Logger */}
@@ -541,7 +384,7 @@ export default function TodayDashboardScreen() {
             </View>
             {!profile.is_pro_subscriber ? (
               <Text style={[styles.glucoseText, { color: '#4F46E5', fontWeight: '700' }]}>
-                🔒 Unlock Pro to predict post-meal glucose spikes and energy crash risks. Tap to upgrade.
+                {pricingConfig.glucose_lock_notice || '🔒 Upgrade to Pro to unlock AI glucose impact & energy crash predictions.'}
               </Text>
             ) : (
               <Text style={[styles.glucoseText, { color: totals.protein >= totals.carbs * 0.4 ? '#047857' : '#B45309' }]}>
@@ -555,6 +398,9 @@ export default function TodayDashboardScreen() {
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Clean Horizontal Section Demarcation Line */}
+      <View style={styles.sectionDivider} />
 
       {/* Today's Meals Timeline */}
       <View style={styles.timelineSection}>
@@ -843,8 +689,8 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 10,
     justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.03,
@@ -884,8 +730,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#C7D2FE',
+    borderWidth: 1.5,
+    borderColor: '#A5B4FC',
     gap: 8,
   },
   freezeSavedText: {
@@ -915,13 +761,36 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginTop: 10,
     marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#C7D2FE',
+    borderWidth: 1.5,
+    borderColor: '#A5B4FC',
   },
   utilityAccordionTitle: {
     fontSize: 13,
     fontWeight: '800',
     color: '#4F46E5',
+  },
+  utilityVaultCard: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 20,
+    padding: 12,
+    marginTop: 6,
+    marginBottom: 10,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+  },
+  utilityVaultHeader: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.8,
+    marginBottom: 10,
+    marginLeft: 2,
+  },
+  sectionDivider: {
+    height: 1.5,
+    backgroundColor: '#CBD5E1',
+    marginVertical: 14,
+    width: '100%',
   },
   embeddedBankHeader: {
     width: '100%',
@@ -933,8 +802,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#C7D2FE',
+    borderWidth: 1.5,
+    borderColor: '#A5B4FC',
   },
   bankPillText: {
     fontSize: 11,
@@ -947,8 +816,8 @@ const styles = StyleSheet.create({
     padding: 18,
     alignItems: 'center',
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
@@ -961,8 +830,8 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: 10,
     paddingTop: 10,
-    borderTopWidth: 1,
-    borderColor: '#F1F5F9',
+    borderTopWidth: 1.5,
+    borderColor: '#E2E8F0',
   },
   macroPill: {
     alignItems: 'center',
@@ -989,8 +858,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 14,
     marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
+    borderWidth: 1.5,
+    borderColor: '#86EFAC',
   },
   glucoseHeader: {
     flexDirection: 'row',
@@ -1022,8 +891,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 24,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
   },
   emptyTitle: {
     fontSize: 16,
@@ -1041,8 +910,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
   },
   mealHeader: {
     flexDirection: 'row',
@@ -1127,5 +996,23 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#4F46E5',
+  },
+  welcomeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#EEF2FF',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  welcomeBannerText: {
+    fontSize: 12,
+    color: '#334155',
+    flex: 1,
+    lineHeight: 16,
   },
 });

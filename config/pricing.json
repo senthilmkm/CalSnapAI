@@ -1,11 +1,30 @@
 {
   "currency": "USD",
   "banner_text": "✨ CalSnap AI Pro — Full Access",
+  "paywall_headline": "Unlock CalSnap AI Pro",
+  "paywall_subheadline": "Zero-friction food logging, weekly calorie banking, and interactive oil sliders.",
+  "paywall_badge": "🔥 7-Day Free Trial Included on All Plans",
+  "coffee_callout": "☕ Less than a cup of coffee per month",
+  "glucose_lock_notice": "🔒 Upgrade to Pro to unlock AI glucose impact & energy crash predictions.",
+  "pdf_export_lock_notice": "🔒 Export PDF (Pro)",
+  "free_tier": {
+    "daily_snap_limit": 1,
+    "label": "Free Tier (1 AI Snap / Day)",
+    "banner_text": "🔒 Daily 1 Free AI Scan used. Tap to upgrade to Pro Unlimited!",
+    "badge_text_available": "1 Free Snap Left",
+    "badge_text_used": "0 Free Snaps Left"
+  },
+  "pro_tier": {
+    "label": "CalSnap AI Pro",
+    "badge_text": "PRO UNLIMITED",
+    "manage_sub_label": "Manage Subscription",
+    "upgrade_sub_label": "Upgrade to Unlimited Pro"
+  },
   "monthly": {
     "price_id": "calsnap_monthly",
     "display_price": "$9.99",
     "period": "/month",
-    "trial_days": 0
+    "trial_days": 7
   },
   "annual": {
     "price_id": "calsnap_yearly",

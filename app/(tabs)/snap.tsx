@@ -12,8 +12,9 @@ import { PaywallModal } from '../../components/PaywallModal';
 import { BarcodeScannerModal } from '../../components/BarcodeScannerModal';
 import { AIDataConsentModal } from '../../components/AIDataConsentModal';
 import { sendInstantAsyncMealNotification } from '../../services/notifications';
+import pricingConfig from '../../config/pricing.json';
 
-const FREE_DAILY_SNAP_LIMIT = 1;
+const FREE_DAILY_SNAP_LIMIT = pricingConfig.free_tier?.daily_snap_limit ?? 1;
 
 export default function SnapScreen() {
   const [analyzing, setAnalyzing] = useState(false);
@@ -32,11 +33,12 @@ export default function SnapScreen() {
   const goals = useAppStore((state) => state.goals);
   const addMeal = useAppStore((state) => state.addMeal);
   const updateMealSliders = useAppStore((state) => state.updateMealSliders);
-  const getTodayMeals = useAppStore((state) => state.getTodayMeals);
+  const getTodayScanCount = useAppStore((state) => state.getTodayScanCount);
+  const incrementDailyScan = useAppStore((state) => state.incrementDailyScan);
   const meals = useAppStore((state) => state.meals);
 
   const activeMeal = meals.find((m) => m.id === currentMealId);
-  const todaySnapsCount = getTodayMeals().length;
+  const todaySnapsCount = getTodayScanCount();
   const isFreeTier = !profile.is_pro_subscriber;
   const snapsRemaining = Math.max(0, FREE_DAILY_SNAP_LIMIT - todaySnapsCount);
 
@@ -199,6 +201,7 @@ export default function SnapScreen() {
       });
 
       setCurrentMealId(newMeal.id);
+      incrementDailyScan();
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await sendInstantAsyncMealNotification(result.dish_name, result.total_calories);
 
@@ -266,9 +269,13 @@ export default function SnapScreen() {
       <View style={styles.header}>
         <Text style={styles.screenTitle}>Snap & Log</Text>
         <TouchableOpacity style={styles.quotaBadge} onPress={() => isFreeTier && setPaywallVisible(true)}>
-          <Sparkles size={14} color={isFreeTier ? '#F59E0B' : '#10B981'} />
-          <Text style={[styles.quotaText, { color: isFreeTier ? '#D97706' : '#065F46' }]}>
-            {isFreeTier ? `${snapsRemaining}/${FREE_DAILY_SNAP_LIMIT} Free Snap` : 'PRO UNLIMITED'}
+          <Sparkles size={14} color={isFreeTier ? (snapsRemaining > 0 ? '#10B981' : '#EF4444') : '#10B981'} />
+          <Text style={[styles.quotaText, { color: isFreeTier ? (snapsRemaining > 0 ? '#065F46' : '#DC2626') : '#065F46' }]}>
+            {isFreeTier
+              ? snapsRemaining > 0
+                ? pricingConfig.free_tier?.badge_text_available || '1 Free Snap Left'
+                : pricingConfig.free_tier?.badge_text_used || '0 Free Snaps Left'
+              : pricingConfig.pro_tier?.badge_text || 'PRO UNLIMITED'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -277,7 +284,9 @@ export default function SnapScreen() {
       {isFreeTier && snapsRemaining === 0 && (
         <TouchableOpacity style={styles.gateBanner} onPress={() => setPaywallVisible(true)} activeOpacity={0.9}>
           <AlertCircle size={18} color="#EF4444" />
-          <Text style={styles.gateBannerText}>Daily free limit reached. Tap to upgrade to Pro Unlimited!</Text>
+          <Text style={styles.gateBannerText}>
+            {pricingConfig.free_tier?.banner_text || '🔒 Daily 1 Free AI Scan used. Tap to upgrade to Pro Unlimited!'}
+          </Text>
         </TouchableOpacity>
       )}
 
@@ -368,7 +377,7 @@ export default function SnapScreen() {
             activeOpacity={0.85}
           >
             <Text style={[styles.stylePillText, cookingStyle === 'heavy' && styles.stylePillTextActive]}>
-              🧈 Heavy Ghee (+15g)
+              🧈 Butter / Ghee (+15g)
             </Text>
           </TouchableOpacity>
         </View>

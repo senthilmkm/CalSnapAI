@@ -38,11 +38,8 @@ export function QuickAddModal({ visible, onClose, onMealLogged }: QuickAddModalP
   const [proteinInput, setProteinInput] = useState<string>('');
   const [carbsInput, setCarbsInput] = useState<string>('');
   const [fatInput, setFatInput] = useState<string>('');
-  const [paywallVisible, setPaywallVisible] = useState<boolean>(false);
 
   const addMeal = useAppStore((state) => state.addMeal);
-  const profile = useAppStore((state) => state.profile);
-  const getTodayMeals = useAppStore((state) => state.getTodayMeals);
 
   const handleApplyPreset = (preset: typeof PRESET_CHIPS[0]) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -53,13 +50,6 @@ export function QuickAddModal({ visible, onClose, onMealLogged }: QuickAddModalP
   };
 
   const handleSaveQuickMeal = () => {
-    const todayCount = getTodayMeals().length;
-    if (!profile.is_pro_subscriber && todayCount >= 1) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      setPaywallVisible(true);
-      return;
-    }
-
     const cals = parseInt(caloriesInput, 10);
     if (isNaN(cals) || cals <= 0) {
       Alert.alert('Invalid Calories', 'Please enter a valid calorie amount.');
@@ -119,114 +109,113 @@ export function QuickAddModal({ visible, onClose, onMealLogged }: QuickAddModalP
             style={{ width: '100%' }}
           >
             <View style={styles.modalContent}>
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Zap size={20} color="#4F46E5" />
-              <Text style={styles.title}>3-Sec Quick Add</Text>
-            </View>
-            <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-              <X size={20} color="#64748B" />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Quick Presets */}
-            <Text style={styles.sectionLabel}>Quick Calorie Presets</Text>
-            <View style={styles.presetsRow}>
-              {PRESET_CHIPS.map((chip, idx) => (
-                <TouchableOpacity
-                  key={idx}
-                  style={styles.presetChip}
-                  onPress={() => handleApplyPreset(chip)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.presetChipText}>{chip.label}</Text>
+              {/* Header */}
+              <View style={styles.header}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Zap size={20} color="#4F46E5" />
+                  <Text style={styles.title}>3-Sec Quick Add</Text>
+                </View>
+                <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
+                  <X size={20} color="#64748B" />
                 </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Inputs Form */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Dish or Food Description (Optional)</Text>
-              <TextInput
-                style={styles.textInput}
-                placeholder="e.g. Protein Smoothie, Dinner at Restaurant"
-                placeholderTextColor="#94A3B8"
-                value={dishName}
-                onChangeText={setDishName}
-              />
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Total Calories (Required)</Text>
-              <View style={styles.calInputContainer}>
-                <TextInput
-                  style={styles.calInput}
-                  placeholder="450"
-                  placeholderTextColor="#CBD5E1"
-                  keyboardType="number-pad"
-                  value={caloriesInput}
-                  onChangeText={setCaloriesInput}
-                  maxLength={5}
-                />
-                <Text style={styles.calUnit}>kcal</Text>
-              </View>
-            </View>
-
-            {/* Macros Row */}
-            <Text style={styles.sectionLabel}>Macronutrients (Optional)</Text>
-            <View style={styles.macroRow}>
-              <View style={styles.macroCol}>
-                <Text style={[styles.macroLabel, { color: '#10B981' }]}>Protein (g)</Text>
-                <TextInput
-                  style={styles.macroInput}
-                  placeholder="25"
-                  placeholderTextColor="#CBD5E1"
-                  keyboardType="number-pad"
-                  value={proteinInput}
-                  onChangeText={setProteinInput}
-                />
               </View>
 
-              <View style={styles.macroCol}>
-                <Text style={[styles.macroLabel, { color: '#F59E0B' }]}>Carbs (g)</Text>
-                <TextInput
-                  style={styles.macroInput}
-                  placeholder="40"
-                  placeholderTextColor="#CBD5E1"
-                  keyboardType="number-pad"
-                  value={carbsInput}
-                  onChangeText={setCarbsInput}
-                />
-              </View>
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 10 }}>
+                {/* Quick Presets */}
+                <Text style={styles.sectionLabel}>Quick Calorie Presets</Text>
+                <View style={styles.presetsRow}>
+                  {PRESET_CHIPS.map((chip, idx) => (
+                    <TouchableOpacity
+                      key={idx}
+                      style={styles.presetChip}
+                      onPress={() => handleApplyPreset(chip)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.presetChipText}>{chip.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
 
-              <View style={styles.macroCol}>
-                <Text style={[styles.macroLabel, { color: '#EF4444' }]}>Fat (g)</Text>
-                <TextInput
-                  style={styles.macroInput}
-                  placeholder="12"
-                  placeholderTextColor="#CBD5E1"
-                  keyboardType="number-pad"
-                  value={fatInput}
-                  onChangeText={setFatInput}
-                />
-              </View>
+                {/* Inputs Form */}
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Dish or Food Description (Optional)</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="e.g. Protein Smoothie, Dinner at Restaurant"
+                    placeholderTextColor="#94A3B8"
+                    value={dishName}
+                    onChangeText={setDishName}
+                  />
+                </View>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Total Calories (Required)</Text>
+                  <View style={styles.calInputContainer}>
+                    <TextInput
+                      style={styles.calInput}
+                      placeholder="450"
+                      placeholderTextColor="#CBD5E1"
+                      keyboardType="number-pad"
+                      value={caloriesInput}
+                      onChangeText={setCaloriesInput}
+                      maxLength={5}
+                    />
+                    <Text style={styles.calUnit}>kcal</Text>
+                  </View>
+                </View>
+
+                {/* Macros Row */}
+                <Text style={styles.sectionLabel}>Macronutrients (Optional)</Text>
+                <View style={styles.macroRow}>
+                  <View style={styles.macroCol}>
+                    <Text style={[styles.macroLabel, { color: '#10B981' }]}>Protein (g)</Text>
+                    <TextInput
+                      style={styles.macroInput}
+                      placeholder="25"
+                      placeholderTextColor="#CBD5E1"
+                      keyboardType="number-pad"
+                      value={proteinInput}
+                      onChangeText={setProteinInput}
+                    />
+                  </View>
+
+                  <View style={styles.macroCol}>
+                    <Text style={[styles.macroLabel, { color: '#F59E0B' }]}>Carbs (g)</Text>
+                    <TextInput
+                      style={styles.macroInput}
+                      placeholder="40"
+                      placeholderTextColor="#CBD5E1"
+                      keyboardType="number-pad"
+                      value={carbsInput}
+                      onChangeText={setCarbsInput}
+                    />
+                  </View>
+
+                  <View style={styles.macroCol}>
+                    <Text style={[styles.macroLabel, { color: '#EF4444' }]}>Fat (g)</Text>
+                    <TextInput
+                      style={styles.macroInput}
+                      placeholder="12"
+                      placeholderTextColor="#CBD5E1"
+                      keyboardType="number-pad"
+                      value={fatInput}
+                      onChangeText={setFatInput}
+                    />
+                  </View>
+                </View>
+              </ScrollView>
+
+              {/* Single Prominent Bottom Action Button */}
+              <TouchableOpacity style={[styles.submitBtn, { marginTop: 8 }]} onPress={handleSaveQuickMeal} activeOpacity={0.85}>
+                <Check size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.submitBtnText}>Log Quick Meal</Text>
+              </TouchableOpacity>
             </View>
-
-            {/* Submit Button */}
-            <TouchableOpacity style={styles.submitBtn} onPress={handleSaveQuickMeal} activeOpacity={0.85}>
-              <Check size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.submitBtnText}>Log Quick Meal</Text>
-            </TouchableOpacity>
-          </ScrollView>
+          </KeyboardAvoidingView>
         </View>
-      </KeyboardAvoidingView>
-    </View>
-  </TouchableWithoutFeedback>
-  <PaywallModal visible={paywallVisible} onClose={() => setPaywallVisible(false)} />
-</Modal>
-);
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
 }
 
 const styles = StyleSheet.create({

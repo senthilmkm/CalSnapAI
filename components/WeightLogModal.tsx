@@ -58,9 +58,15 @@ export function WeightLogModal({ visible, onClose }: WeightLogModalProps) {
                   <Scale size={20} color="#4F46E5" />
                   <Text style={styles.title}>Log Scale Weight</Text>
                 </View>
-                <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
-                  <X size={20} color="#64748B" />
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <TouchableOpacity style={styles.headerSaveBtn} onPress={handleSaveWeight}>
+                    <Check size={16} color="#4F46E5" />
+                    <Text style={styles.headerSaveText}>Save</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
+                    <X size={20} color="#64748B" />
+                  </TouchableOpacity>
+                </View>
               </View>
 
               {/* Unit Switcher */}
@@ -151,6 +157,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerSaveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 4,
+  },
+  headerSaveText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#4F46E5',
   },
   unitContainer: {
     flexDirection: 'row',

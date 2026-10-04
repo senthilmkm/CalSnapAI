@@ -282,10 +282,14 @@ export default function SettingsScreen() {
         <Text style={styles.planStatus}>
           {profile.is_pro_subscriber
             ? `🎉 Active Plan: CalSnap AI Pro (${pricingConfig.monthly.display_price}/mo or ${pricingConfig.annual.display_price}/yr)`
-            : 'Free Tier (1 AI Snap / Day)'}
+            : pricingConfig.free_tier?.label || 'Free Tier (1 AI Snap / Day)'}
         </Text>
         <TouchableOpacity style={styles.manageSubBtn} onPress={() => setPaywallVisible(true)}>
-          <Text style={styles.manageSubText}>{profile.is_pro_subscriber ? 'Manage Subscription' : 'Upgrade to Unlimited Pro'}</Text>
+          <Text style={styles.manageSubText}>
+            {profile.is_pro_subscriber
+              ? pricingConfig.pro_tier?.manage_sub_label || 'Manage Subscription'
+              : pricingConfig.pro_tier?.upgrade_sub_label || 'Upgrade to Unlimited Pro'}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -447,8 +451,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 18,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
   },
   sectionHeaderRow: {
     flexDirection: 'row',

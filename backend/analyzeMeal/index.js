@@ -38,6 +38,9 @@ exports.analyzeMeal = async (req, res) => {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
+  let cleanData = null;
+  let imagePart = null;
+
   try {
     // 1. Validate App Secret Handshake Header (with trim to handle Secret Manager trailing whitespace)
     const appSecretHeader = (req.headers["x-calsnap-app-secret"] || "").trim();
@@ -76,14 +79,21 @@ exports.analyzeMeal = async (req, res) => {
 
     const genAI = new GoogleGenerativeAI(apiKey);
 
-    // 5. Construct Master Clinical Nutrition Prompt
-    const prompt = `You are CalSnap AI — the world's most advanced clinical AI nutritionist, computer vision food scientist, and biochemical macro analyst. Perform a meticulous visual and biochemical analysis of this meal photo.
+    // 5. Construct Master Clinical Nutrition & Volumetric Prompt
+    const prompt = `You are CalSnap AI — the world's most advanced clinical AI nutritionist, computer vision food scientist, and biochemical macro analyst. Perform a meticulous, high-precision visual and biochemical analysis of this meal photo.
 
---- DIRECTIVES ---
-1. Identify all food items, ingredients, seasonings, and cooking methods.
-2. Estimate portion volume, total mass in grams, calories, protein, carbs, and fat.
-3. User Voice Note / Context: "${sanitizedVoice || "None"}".
-4. Regional Cuisine Style: "${sanitizedPreset}".
+--- CLINICAL DIRECTIVES FOR MAXIMUM CALORIC ACCURACY ---
+1. 3D VOLUMETRIC & SPATIAL MASS ESTIMATION:
+   - Estimate portion volume and mass in grams based on plate scale, depth, item stacking, and spatial bounding relative to standard tableware.
+   - Apply raw vs cooked mass density conversions (e.g. cooked rice/pasta density vs raw; meat moisture loss during grilling/searing).
+2. HIDDEN OILS, FATS & COOKING METHOD ANALYSIS:
+   - Carefully analyze surface sheen, glazes, dressings, pan oil absorption, and deep-frying batter.
+   - Estimate total hidden cooking oil mass in grams (estimated_oil_g) using 9 kcal/g fat density.
+3. BIOCHEMICAL MACRO INTEGRITY (ATWATER 4-4-9 RATIO):
+   - Ensure total_calories matches: (protein_g * 4) + (carbs_g * 4) + (fat_g * 9).
+4. CONTEXT & CUISINE INTEGRATION:
+   - User Voice Note / Context: "${sanitizedVoice || "None"}".
+   - Regional Cuisine Style: "${sanitizedPreset}".
 
 Return ONLY valid JSON matching this exact structure:
 {
@@ -91,34 +101,40 @@ Return ONLY valid JSON matching this exact structure:
   "confidence": 0.98,
   "items": [
     {
-      "name": "Item Name",
+      "name": "Item Name (e.g., Grilled Chicken Breast)",
       "weight_g": 150,
       "calories": 220,
-      "protein_g": 32,
-      "carbs_g": 12,
-      "fat_g": 6
+      "protein_g": 32.0,
+      "carbs_g": 0.0,
+      "fat_g": 5.0
     }
   ],
-  "estimated_oil_g": 8,
-  "total_calories": 450,
-  "total_protein_g": 40,
-  "total_carbs_g": 35,
-  "total_fat_g": 14,
+  "estimated_oil_g": 5,
+  "total_calories": 265,
+  "total_protein_g": 32.0,
+  "total_carbs_g": 0.0,
+  "total_fat_g": 10.0,
   "glucose_impact_score": "LOW",
   "energy_crash_risk": "VERY_LOW",
-  "ai_tip": "One precision nutrition insight about this meal."
+  "ai_tip": "One precise, highly actionable clinical nutrition insight about this specific meal."
 }`;
 
-    const cleanData = image_base64.replace(/^data:image\/\w+;base64,/, "");
-    const imagePart = {
+    cleanData = image_base64.replace(/^data:image\/\w+;base64,/, "");
+    imagePart = {
       inlineData: {
         data: cleanData,
         mimeType: "image/jpeg",
       },
     };
 
-    // 6. Execute Gemini Vision Inference with Model Cascade
-    const candidateModels = ["gemini-2.5-flash", "gemini-flash-latest"];
+    // 6. Execute Gemini Vision Inference with Precision Model Cascade (Ephemeral in-memory stream)
+    const candidateModels = [
+      "gemini-2.5-flash",
+      "gemini-2.5-pro",
+      "gemini-2.0-flash",
+      "gemini-1.5-pro",
+      "gemini-1.5-flash"
+    ];
     let rawText = "";
     let lastErr = null;
 
@@ -127,7 +143,7 @@ Return ONLY valid JSON matching this exact structure:
         const model = genAI.getGenerativeModel({
           model: modelName,
           generationConfig: {
-            temperature: 0.1,
+            temperature: 0.0, // 0.0 temperature for deterministic, clinical numerical precision
             maxOutputTokens: 2048,
           },
         });
@@ -195,5 +211,9 @@ Return ONLY valid JSON matching this exact structure:
       error: "Failed to analyze meal image",
       message: error.message || "An internal server error occurred while processing nutrition analysis.",
     });
+  } finally {
+    // Zero-Memory-Leak & Zero-Persistence Guarantee: Dereference all heavy buffers
+    cleanData = null;
+    imagePart = null;
   }
 };
