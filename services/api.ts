@@ -282,12 +282,18 @@ export async function analyzeWithGeminiVision(
 
   const promptText = `You are CalSnap AI, the world's most advanced clinical AI nutritionist and computer vision food expert. Perform a meticulous, high-precision visual and biochemical analysis of this meal photo.
 
---- ZERO-FRICTION MULTI-FACTOR ANALYSIS GUIDELINES ---
-1. 3D SPATIAL & FRUIT/FOOD SIZE SCALE ESTIMATION:
-   - Carefully inspect visual scale, depth, and spatial volume of fruits and whole foods (Small vs Medium vs Large).
-   - Small Orange (~96g, ~45 kcal, ~9g carbs) vs Medium Orange (~131g, ~62 kcal) vs Large Orange (~184g, ~86 kcal).
-   - Small Banana (~100g, ~90 kcal) vs Medium (~118g, ~105 kcal) vs Large (~136g, ~121 kcal).
-   - Explicitly include size classification in the item name (e.g. "Small Fresh Orange (~96g)").
+--- MANDATORY CLINICAL DIRECTIVES FOR ALL FOOD ITEMS ---
+1. MANDATORY 3D VISUAL BOUNDING & CLINICAL SIZE MASS SCALING FOR ALL RAW NATURAL EATABLE ITEMS:
+   - For EVERY raw fruit, raw vegetable, salad, whole nut, seed, or natural raw produce item:
+   - Perform 3D Visual Bounding Box Analysis & Spatial Scale Estimation relative to plate diameter, utensils, or hands.
+   - Classify physical size explicitly: Small vs Medium vs Large vs Extra Large / Jumbo.
+   - Examples of Clinical Size Mass Scaling:
+     * Orange: Small (~96g, ~45 kcal) vs Medium (~131g, ~62 kcal) vs Large (~184g, ~86 kcal).
+     * Apple: Small (~149g, ~77 kcal) vs Medium (~182g, ~95 kcal) vs Large (~223g, ~116 kcal).
+     * Banana: Small (~101g, ~90 kcal) vs Medium (~118g, ~105 kcal) vs Large (~136g, ~121 kcal).
+     * Avocado: Small (~140g, ~224 kcal) vs Medium (~170g, ~272 kcal) vs Large (~200g, ~320 kcal).
+     * Cucumber / Tomato: Small (~100g, ~16 kcal) vs Medium (~150g, ~24 kcal) vs Large (~220g, ~35 kcal).
+   - Explicitly include size classification in item name (e.g. "Small Fresh Orange (~96g)", "Medium Fuji Apple (~182g)").
 
 2. ZERO-FRICTION FOOD CATEGORY CLASSIFICATION:
    - CATEGORY A: Raw Fruits, Raw Salad, Fresh Vegetables, Boiled Eggs -> MUST set estimated_oil_g to 0.
