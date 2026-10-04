@@ -282,18 +282,15 @@ export async function analyzeWithGeminiVision(
 
   const promptText = `You are CalSnap AI, the world's most advanced clinical AI nutritionist and computer vision food expert. Perform a meticulous, high-precision visual and biochemical analysis of this meal photo.
 
---- MANDATORY CLINICAL DIRECTIVES FOR ALL FOOD ITEMS ---
-1. MANDATORY 3D VISUAL BOUNDING & CLINICAL SIZE MASS SCALING FOR ALL RAW NATURAL EATABLE ITEMS:
-   - For EVERY raw fruit, raw vegetable, salad, whole nut, seed, or natural raw produce item:
-   - Perform 3D Visual Bounding Box Analysis & Spatial Scale Estimation relative to plate diameter, utensils, or hands.
-   - Classify physical size explicitly: Small vs Medium vs Large vs Extra Large / Jumbo.
-   - Examples of Clinical Size Mass Scaling:
-     * Orange: Small (~96g, ~45 kcal) vs Medium (~131g, ~62 kcal) vs Large (~184g, ~86 kcal).
-     * Apple: Small (~149g, ~77 kcal) vs Medium (~182g, ~95 kcal) vs Large (~223g, ~116 kcal).
-     * Banana: Small (~101g, ~90 kcal) vs Medium (~118g, ~105 kcal) vs Large (~136g, ~121 kcal).
-     * Avocado: Small (~140g, ~224 kcal) vs Medium (~170g, ~272 kcal) vs Large (~200g, ~320 kcal).
-     * Cucumber / Tomato: Small (~100g, ~16 kcal) vs Medium (~150g, ~24 kcal) vs Large (~220g, ~35 kcal).
-   - Explicitly include size classification in item name (e.g. "Small Fresh Orange (~96g)", "Medium Fuji Apple (~182g)").
+--- MANDATORY CLINICAL DIRECTIVES FOR ALL EATABLE ITEMS ---
+1. UNIVERSAL 3D VISUAL BOUNDING & CLINICAL MASS SCALING FOR ALL EATABLE ITEMS:
+   - Perform 3D Visual Bounding Box Analysis & Spatial Scale Estimation for EVERY SINGLE EATABLE ITEM in the photo across ALL food categories:
+     * RAW PRODUCE (Fruits, Vegetables, Salads, Nuts, Seeds): Classify physical size explicitly (Small vs Medium vs Large vs Jumbo) and scale gram weight & macros (e.g. "Small Fresh Orange (~96g, ~45 kcal)", "Medium Fuji Apple (~182g, ~95 kcal)", "Large Avocado (~200g, ~320 kcal)").
+     * PROTEINS & MEATS (Chicken Breast, Steak, Fish Fillet, Tofu, Eggs): Volumetric thickness & mass scaling (e.g., 120g thin fillet vs 250g thick-cut steak).
+     * GRAINS, CARBS & BREADS (Rice, Pasta, Oats, Rotis, Naan, Toast): Plate coverage area & stack depth scaling (e.g., 1 cup cooked rice ~195g vs 2 cups ~390g; 1 Roti ~40g vs 2 Rotis ~80g).
+     * BEVERAGES & DRINKS (Smoothies, Juices, Coffee, Milk, Protein Shakes): Container/glass volume scaling (e.g., 250ml cup vs 500ml tall glass).
+     * BAKED GOODS & DESSERTS (Cakes, Pastries, Cookies, Muffins): Bounding slice volume scaling (e.g., 60g small slice vs 120g thick slice).
+   - ALWAYS include exact estimated gram weight and size classification in the item name (e.g., "Small Fresh Orange (~96g)", "Grilled Chicken Breast (~180g)").
 
 2. ZERO-FRICTION FOOD CATEGORY CLASSIFICATION:
    - CATEGORY A: Raw Fruits, Raw Salad, Fresh Vegetables, Boiled Eggs -> MUST set estimated_oil_g to 0.
