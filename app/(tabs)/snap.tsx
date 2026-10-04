@@ -205,7 +205,12 @@ export default function SnapScreen() {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await sendInstantAsyncMealNotification(result.dish_name, result.total_calories);
 
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.message === 'QUOTA_EXCEEDED') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        setPaywallVisible(true);
+        return;
+      }
       Alert.alert('Analysis Warning', 'Meal logged with standard fallback nutrition estimation.');
     } finally {
       setAnalyzing(false);

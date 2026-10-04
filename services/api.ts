@@ -1,4 +1,6 @@
 import { MealRecord } from '../types/nutrition';
+import { useAppStore } from './storage';
+import pricingConfig from '../config/pricing.json';
 
 const GCLOUD_FUNCTION_URL = 'https://us-central1-calsnap-ai-app.cloudfunctions.net/analyzeMeal';
 const CALSNAP_APP_SECRET = 'calsnap_sec_9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e';
@@ -13,6 +15,16 @@ export interface AnalyzeMealParams {
 }
 
 export async function analyzeMealImage(params: AnalyzeMealParams): Promise<Omit<MealRecord, 'id' | 'timestamp'>> {
+  // Service Layer Security Gate: Verify quota before making any AI network requests
+  const state = useAppStore.getState();
+  const isFreeTier = !state.profile.is_pro_subscriber;
+  const todayScanCount = state.getTodayScanCount();
+  const dailyLimit = pricingConfig.free_tier?.daily_snap_limit ?? 1;
+
+  if (isFreeTier && todayScanCount >= dailyLimit) {
+    throw new Error('QUOTA_EXCEEDED');
+  }
+
   // 1. Direct Gemini Vision AI Integration (if API Key provided)
   if (params.geminiApiKey) {
     return await analyzeWithGeminiVision(
