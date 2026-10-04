@@ -282,18 +282,27 @@ export async function analyzeWithGeminiVision(
 
   const promptText = `You are CalSnap AI, the world's most advanced clinical AI nutritionist and computer vision food expert. Perform a meticulous, high-precision visual and biochemical analysis of this meal photo.
 
---- MULTI-FACTOR ANALYSIS GUIDELINES ---
-1. PORTION & 3D VOLUMETRIC METRICS:
-   - Estimate portion volume and mass in grams based on plate scale, depth, thickness, and spatial bounding.
-2. FRUIT & VEGETABLE RIPENESS & MATURITY:
-   - Carefully inspect skin pigmentation, browning/freckling, texture, and ripeness stage (e.g., unripe green vs perfectly ripe yellow vs overripe spotted banana/avocado/fruit).
+--- ZERO-FRICTION MULTI-FACTOR ANALYSIS GUIDELINES ---
+1. 3D SPATIAL & FRUIT/FOOD SIZE SCALE ESTIMATION:
+   - Carefully inspect visual scale, depth, and spatial volume of fruits and whole foods (Small vs Medium vs Large).
+   - Small Orange (~96g, ~45 kcal, ~9g carbs) vs Medium Orange (~131g, ~62 kcal) vs Large Orange (~184g, ~86 kcal).
+   - Small Banana (~100g, ~90 kcal) vs Medium (~118g, ~105 kcal) vs Large (~136g, ~121 kcal).
+   - Explicitly include size classification in the item name (e.g. "Small Fresh Orange (~96g)").
+
+2. ZERO-FRICTION FOOD CATEGORY CLASSIFICATION:
+   - CATEGORY A: Raw Fruits, Raw Salad, Fresh Vegetables, Boiled Eggs -> MUST set estimated_oil_g to 0.
+   - CATEGORY B: Beverages, Coffee, Tea, Smoothies, Juices, Milk -> MUST set estimated_oil_g to 0.
+   - CATEGORY C: Packaged Foods, Yogurt, Protein Bars, Snacks -> MUST set estimated_oil_g to 0.
+   - CATEGORY D: Cooked Dishes, Curries, Stir-fries, Pan-seared, Fried -> Calculate hidden oil mass in grams.
+
+3. FRUIT & VEGETABLE RIPENESS & MATURITY:
+   - Inspect skin pigmentation, browning/freckling, and ripeness stage (e.g., green vs yellow vs spotted banana).
    - Adjust sucrose/fructose ratio, net carbohydrates, and glycemic impact based on ripeness.
-3. INGREDIENT DECONSTRUCTION & COOKING OILS:
-   - Identify all individual ingredients, seasonings, sauces, dressings, and cooking preparation methods (deep-fried, pan-seared, boiled, raw, grilled).
-   - Calculate hidden cooking oil mass in grams (estimated_oil_g).
+
 4. CULTURAL CUISINE CONTEXT:
    - Regional Preference: "${culturalPreset || 'Standard'}".
    - Voice Note / User Context: "${voiceTranscript || 'None'}".
+
 5. METABOLIC FORECASTING:
    - Assess glucose_impact_score ('LOW' | 'MEDIUM' | 'HIGH').
    - Assess energy_crash_risk ('VERY_LOW' | 'LOW' | 'MEDIUM' | 'HIGH').

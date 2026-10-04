@@ -83,14 +83,21 @@ exports.analyzeMeal = async (req, res) => {
     const prompt = `You are CalSnap AI — the world's most advanced clinical AI nutritionist, computer vision food scientist, and biochemical macro analyst. Perform a meticulous, high-precision visual and biochemical analysis of this meal photo.
 
 --- CLINICAL DIRECTIVES FOR MAXIMUM CALORIC ACCURACY ---
-1. 3D VOLUMETRIC & SPATIAL MASS ESTIMATION:
-   - Estimate portion volume and mass in grams based on plate scale, depth, item stacking, and spatial bounding relative to standard tableware.
-   - Apply raw vs cooked mass density conversions (e.g. cooked rice/pasta density vs raw; meat moisture loss during grilling/searing).
-2. HIDDEN OILS, FATS & COOKING METHOD ANALYSIS:
-   - Carefully analyze surface sheen, glazes, dressings, pan oil absorption, and deep-frying batter.
-   - Estimate total hidden cooking oil mass in grams (estimated_oil_g) using 9 kcal/g fat density.
+1. 3D SPATIAL & FRUIT/FOOD SIZE SCALE ESTIMATION:
+   - Carefully inspect visual scale, depth, and spatial volume of fruits and whole foods (Small vs Medium vs Large).
+   - Small Orange (~96g, ~45 kcal) vs Medium Orange (~131g, ~62 kcal) vs Large Orange (~184g, ~86 kcal).
+   - Small Banana (~100g, ~90 kcal) vs Medium (~118g, ~105 kcal) vs Large (~136g, ~121 kcal).
+   - Explicitly include size classification in the item name (e.g. "Small Fresh Orange (~96g)").
+
+2. ZERO-FRICTION FOOD CATEGORY CLASSIFICATION:
+   - CATEGORY A: Raw Fruits, Raw Salad, Fresh Vegetables, Boiled Eggs -> MUST set estimated_oil_g to 0.
+   - CATEGORY B: Beverages, Coffee, Tea, Smoothies, Juices, Milk -> MUST set estimated_oil_g to 0.
+   - CATEGORY C: Packaged Foods, Yogurt, Protein Bars, Snacks -> MUST set estimated_oil_g to 0.
+   - CATEGORY D: Cooked Dishes, Curries, Stir-fries, Pan-seared, Fried -> Calculate hidden oil mass in grams.
+
 3. BIOCHEMICAL MACRO INTEGRITY (ATWATER 4-4-9 RATIO):
    - Ensure total_calories matches: (protein_g * 4) + (carbs_g * 4) + (fat_g * 9).
+
 4. CONTEXT & CUISINE INTEGRATION:
    - User Voice Note / Context: "${sanitizedVoice || "None"}".
    - Regional Cuisine Style: "${sanitizedPreset}".
