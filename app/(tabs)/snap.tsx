@@ -173,6 +173,20 @@ export default function SnapScreen() {
     await executeGalleryLaunch();
   };
 
+  const isRawFoodItem = (dishName: string, items: any[] = []): boolean => {
+    const rawKeywords = [
+      'orange', 'apple', 'banana', 'fruit', 'berries', 'berry', 'watermelon',
+      'grape', 'citrus', 'mango', 'pineapple', 'papaya', 'peach', 'plum',
+      'melon', 'strawberry', 'blueberry', 'raw salad', 'fresh salad', 'raw vegetable', 'boiled egg'
+    ];
+    const lowerDish = (dishName || '').toLowerCase();
+    if (rawKeywords.some((kw) => lowerDish.includes(kw))) return true;
+    return items.some((it) => {
+      const lowerItem = (it?.name || '').toLowerCase();
+      return rawKeywords.some((kw) => lowerItem.includes(kw));
+    });
+  };
+
   const processImageAnalysis = async (base64: string, uri: string) => {
     setAnalyzing(true);
     try {
@@ -182,17 +196,30 @@ export default function SnapScreen() {
         culturalPreset: goals.cultural_preset,
         cookingStyle: cookingStyle,
       });
+
+      const isRaw = cookingStyle === 'raw' || isRawFoodItem(result.dish_name, result.items);
+      const finalOilGrams = isRaw ? 0 : result.estimated_oil_g;
+
+      if (isRaw) {
+        setCookingStyle('raw');
+      }
+
+      // Recalculate fat and calories if oil was zeroed out for raw food
+      const oilDiffGrams = result.estimated_oil_g - finalOilGrams;
+      const oilDiffCals = oilDiffGrams * 9;
+      const finalFatG = Math.max(0, result.total_fat_g - oilDiffGrams);
+      const finalCalories = Math.max(0, result.total_calories - oilDiffCals);
       
       const newMeal = addMeal({
         dish_name: result.dish_name,
         meal_type: 'Lunch',
         items: result.items,
-        estimated_oil_g: result.estimated_oil_g,
+        estimated_oil_g: finalOilGrams,
         portion_multiplier: 1.0,
-        total_calories: result.total_calories,
+        total_calories: finalCalories,
         total_protein_g: result.total_protein_g,
         total_carbs_g: result.total_carbs_g,
-        total_fat_g: result.total_fat_g,
+        total_fat_g: finalFatG,
         glucose_impact_score: result.glucose_impact_score,
         energy_crash_risk: result.energy_crash_risk,
         ai_tip: result.ai_tip,
