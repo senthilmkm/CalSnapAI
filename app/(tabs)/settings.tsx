@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet, Alert, TextInput } from 'react-native';
-import { User, Bell, Trash2, Sparkles, Smartphone, Target, Calculator, Info } from 'lucide-react-native';
+import { User, Bell, Trash2, Sparkles, Smartphone, Target, Calculator, Info, Globe } from 'lucide-react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../../services/storage';
@@ -271,6 +271,43 @@ export default function SettingsScreen() {
           <Calculator size={18} color="#FFFFFF" />
           <Text style={styles.adjustGoalsText}>Calculate & Adjust Goals</Text>
         </TouchableOpacity>
+      </View>
+
+      {/* Cultural Cuisine & Flavor Profile Selector */}
+      <View style={styles.sectionCard}>
+        <View style={styles.sectionHeaderRow}>
+          <Globe size={20} color="#6366F1" />
+          <Text style={styles.sectionTitle}>Cultural Cuisine & Flavor Profile</Text>
+        </View>
+        <Text style={styles.retentionLabel}>
+          Guides AI vision on local cooking oil, ghee, and regional ingredient defaults:
+        </Text>
+        <View style={styles.retentionPillRow}>
+          {[
+            { label: '🌐 Standard', val: 'Standard' },
+            { label: '🍛 Indian Homestyle', val: 'Indian Homestyle' },
+            { label: '🥢 East Asian', val: 'East Asian' },
+            { label: '🥙 Middle Eastern', val: 'Middle Eastern' },
+            { label: '🌮 Latin American', val: 'Latin American' },
+          ].map((preset) => {
+            const isSelected = (goals.cultural_preset || 'Standard') === preset.val;
+            return (
+              <TouchableOpacity
+                key={preset.val}
+                style={[styles.retentionBtn, isSelected && styles.retentionBtnSel]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  updateGoals({ cultural_preset: preset.val as any });
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.retentionText, isSelected && styles.retentionTextSel]}>
+                  {preset.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
 
       {/* Subscription Card */}
