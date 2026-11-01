@@ -13,6 +13,19 @@ interface AppState {
   signInWithApple: (email: string) => void;
   signOut: () => void;
   deleteAccount: () => void;
+  completeOnboarding: (params: {
+    current_weight_kg: number;
+    target_weight_lbs: number;
+    weight_goal: 'Lose Weight' | 'Maintain' | 'Build Muscle';
+    cultural_preset: 'Standard' | 'Indian Homestyle' | 'East Asian' | 'Middle Eastern' | 'Latin American';
+    weight_unit: 'lbs' | 'kg';
+    daily_calories: number;
+    daily_protein_g: number;
+    daily_carbs_g: number;
+    daily_fat_g: number;
+    target_date?: string;
+  }) => void;
+  skipOnboarding: () => void;
 
   // Goals & Targets
   goals: UserGoals;
@@ -133,6 +146,8 @@ export const useAppStore = create<AppState>()(
         is_guest: true,
         is_pro_subscriber: false,
         subscription_tier: 'free',
+        has_completed_onboarding: false,
+        onboarding_skipped: false,
         streak_days: 0,
         streak_freeze_count: 1,
         last_logged_date: undefined,
@@ -185,6 +200,8 @@ export const useAppStore = create<AppState>()(
             email: undefined,
             is_pro_subscriber: false,
             subscription_tier: 'free',
+            has_completed_onboarding: false,
+            onboarding_skipped: false,
             streak_days: 0,
             streak_freeze_count: 1,
             last_logged_date: undefined,
@@ -195,6 +212,52 @@ export const useAppStore = create<AppState>()(
           goals: DEFAULT_GOALS,
           water_logs: {},
           weight_entries: [],
+        })),
+
+      completeOnboarding: (data) =>
+        set((state) => {
+          const startingLbs = Math.round(data.current_weight_kg * 2.20462 * 10) / 10;
+          const initialWeightEntry: WeightEntry = {
+            id: `w-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            date: getTodayKey(),
+            weight_kg: data.current_weight_kg,
+            weight_lbs: startingLbs,
+            note: 'Starting weight check-in',
+          };
+          return {
+            profile: {
+              ...state.profile,
+              has_completed_onboarding: true,
+              onboarding_skipped: false,
+              has_seen_welcome_card: true,
+              current_weight_kg: data.current_weight_kg,
+            },
+            goals: {
+              ...state.goals,
+              daily_calories: data.daily_calories,
+              daily_protein_g: data.daily_protein_g,
+              daily_carbs_g: data.daily_carbs_g,
+              daily_fat_g: data.daily_fat_g,
+              weight_goal: data.weight_goal,
+              weight_unit: data.weight_unit,
+              target_weight_lbs: data.target_weight_lbs,
+              cultural_preset: data.cultural_preset,
+              target_date: data.target_date,
+              starting_weight_lbs: startingLbs,
+            },
+            weight_entries: state.weight_entries && state.weight_entries.length > 0
+              ? state.weight_entries
+              : [initialWeightEntry],
+          };
+        }),
+
+      skipOnboarding: () =>
+        set((state) => ({
+          profile: {
+            ...state.profile,
+            onboarding_skipped: true,
+          },
         })),
 
       goals: DEFAULT_GOALS,

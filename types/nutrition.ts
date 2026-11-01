@@ -51,6 +51,8 @@ export interface UserGoals {
   weight_goal: 'Lose Weight' | 'Maintain' | 'Build Muscle';
   weight_unit: 'lbs' | 'kg';
   target_weight_lbs: number;
+  starting_weight_lbs?: number;
+  target_date?: string; // YYYY-MM-DD
   gemini_api_key?: string;
 }
 
@@ -76,6 +78,8 @@ export interface UserProfile {
   is_guest: boolean;
   is_pro_subscriber: boolean;
   subscription_tier?: 'annual' | 'monthly' | 'free';
+  has_completed_onboarding?: boolean;
+  onboarding_skipped?: boolean;
   streak_days: number;
   streak_freeze_count: number;
   last_logged_date?: string;

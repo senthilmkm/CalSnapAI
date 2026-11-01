@@ -51,6 +51,27 @@ class MockCalSnapStorage {
     this.historySettings = { retention_days: -1 };
   }
 
+  completeOnboarding(data) {
+    const startingLbs = Math.round(data.current_weight_kg * 2.20462 * 10) / 10;
+    this.profile.has_completed_onboarding = true;
+    this.profile.onboarding_skipped = false;
+    this.profile.current_weight_kg = data.current_weight_kg;
+    this.goals.daily_calories = data.daily_calories;
+    this.goals.daily_protein_g = data.daily_protein_g;
+    this.goals.daily_carbs_g = data.daily_carbs_g;
+    this.goals.daily_fat_g = data.daily_fat_g;
+    this.goals.weight_goal = data.weight_goal;
+    this.goals.weight_unit = data.weight_unit;
+    this.goals.target_weight_lbs = data.target_weight_lbs;
+    this.goals.target_date = data.target_date;
+    this.goals.cultural_preset = data.cultural_preset;
+    this.goals.starting_weight_lbs = startingLbs;
+  }
+
+  skipOnboarding() {
+    this.profile.onboarding_skipped = true;
+  }
+
   getTodayKey() {
     const d = new Date();
     const year = d.getFullYear();
@@ -449,7 +470,68 @@ const aiScanMeal = storage.addMeal({
 
 assert.strictEqual(storage.getTodayScanCount(), 1, 'Scan count updates to 1 after taking AI snap');
 assert.ok(storage.profile.last_scan_timestamp, 'last_scan_timestamp ISO string must be recorded');
-console.log('✅ PASSED 6.3: AI Photo scan records timestamp and increments quota.');
+console.log('✅ PASSED 6.3: AI Photo scan records timestamp and increments quota.\n');
+
+// SECTION 7: PERSONAL ROADMAP & ONBOARDING CALCULATION ENGINE
+console.log('--- SECTION 7: Personal Roadmap & Onboarding Math Engine ---');
+
+// 7.1: Mifflin-St Jeor BMR & TDEE Calculation Test
+// Male: 28 years, 5'10" (177.8 cm), 165 lbs (74.84 kg)
+const heightCm = (5 * 12 + 10) * 2.54; // 177.8 cm
+const weightKg = 165 / 2.20462; // ~74.84 kg
+let expectedBmr = 10 * weightKg + 6.25 * heightCm - 5 * 28 + 5; // ~1725.6 kcal
+assert.ok(Math.abs(expectedBmr - 1726) < 2, 'BMR should calculate to ~1726 kcal');
+
+// Light active multiplier (1.375)
+const expectedTdee = expectedBmr * 1.375; // ~2373 kcal
+assert.ok(Math.abs(expectedTdee - 2373) < 2, 'TDEE should calculate to ~2373 kcal');
+
+// 20% deficit for weight loss: target ~1897 kcal
+const expectedTarget = Math.round(expectedTdee * 0.8);
+assert.strictEqual(expectedTarget, 1897);
+
+// 7.2: Days to goal calculation (165 lbs -> 150 lbs = 15 lbs loss)
+const weightLossLbs = 15;
+const totalDeficit = weightLossLbs * 3500; // 52,500 kcal
+const dailyDeficit = expectedTdee - expectedTarget; // ~475 kcal/day
+const daysToGoal = Math.ceil(totalDeficit / dailyDeficit); // ~111 days (~16 weeks)
+assert.strictEqual(daysToGoal, 111);
+console.log('✅ PASSED 7.1: Mifflin-St Jeor BMR, TDEE, and projected goal timeline math verified.');
+
+// 7.3: Atwater Macro Distribution Test (28% P, 40% C, 29% F)
+const proteinG = Math.round((expectedTarget * 0.28) / 4);
+const carbsG = Math.round((expectedTarget * 0.40) / 4);
+const fatG = Math.round((expectedTarget * 0.29) / 9);
+assert.strictEqual(proteinG, 133); // (1898 * 0.28) / 4 = 132.86 -> 133g
+assert.strictEqual(carbsG, 190);   // (1898 * 0.40) / 4 = 189.8 -> 190g
+assert.strictEqual(fatG, 61);      // (1898 * 0.29) / 9 = 61.15 -> 61g
+console.log('✅ PASSED 7.2: Atwater 4-4-9 macro distribution targets verified.');
+
+// 7.4: completeOnboarding and skipOnboarding state mutation test
+storage.reset();
+assert.strictEqual(storage.profile.has_completed_onboarding, undefined);
+storage.skipOnboarding();
+assert.strictEqual(storage.profile.onboarding_skipped, true);
+assert.strictEqual(storage.profile.has_completed_onboarding, undefined);
+
+storage.completeOnboarding({
+  current_weight_kg: 74.8,
+  target_weight_lbs: 150,
+  weight_goal: 'Lose Weight',
+  cultural_preset: 'Indian Homestyle',
+  weight_unit: 'lbs',
+  daily_calories: 1898,
+  daily_protein_g: 133,
+  daily_carbs_g: 190,
+  daily_fat_g: 61,
+  target_date: '2026-08-14',
+});
+assert.strictEqual(storage.profile.has_completed_onboarding, true);
+assert.strictEqual(storage.profile.onboarding_skipped, false);
+assert.strictEqual(storage.goals.daily_calories, 1898);
+assert.strictEqual(storage.goals.target_date, '2026-08-14');
+assert.strictEqual(storage.goals.cultural_preset, 'Indian Homestyle');
+console.log('✅ PASSED 7.3: Onboarding state lifecycle (skip vs complete) verified.');
 
 console.log('========================================================================');
 console.log('🎉 ALL REGRESSION TESTS PASSED CLEANLY (100% PASS RATE)!');

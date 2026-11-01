@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import pricingConfig from '../../config/pricing.json';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
-import { Flame, Plus, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Calendar, Zap, ShieldCheck, Trash2, Sparkles, Scale, Clock, Timer, X } from 'lucide-react-native';
+import { Flame, Plus, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Calendar, Zap, ShieldCheck, Trash2, Sparkles, Scale, Clock, Timer, X, Target } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../../services/storage';
 import { MacroRing } from '../../components/MacroRing';
@@ -13,12 +13,14 @@ import { MealDetailSheet } from '../../components/MealDetailSheet';
 import { StaplesBar } from '../../components/StaplesBar';
 import { QuickAddModal } from '../../components/QuickAddModal';
 import { WeightLogModal } from '../../components/WeightLogModal';
+import { OnboardingModal } from '../../components/OnboardingModal';
 import { MealRecord } from '../../types/nutrition';
 
 export default function TodayDashboardScreen() {
   const [paywallVisible, setPaywallVisible] = useState(false);
   const [quickAddVisible, setQuickAddVisible] = useState(false);
   const [weightLogVisible, setWeightLogVisible] = useState(false);
+  const [onboardingModalVisible, setOnboardingModalVisible] = useState(false);
   const [showUtilities, setShowUtilities] = useState(false);
   const [expandedMealId, setExpandedMealId] = useState<string | null>(null);
   const [detailMeal, setDetailMeal] = useState<MealRecord | null>(null);
@@ -71,6 +73,23 @@ export default function TodayDashboardScreen() {
     if (offset === 1) return 'Tomorrow';
     const targetDate = new Date(Date.now() + offset * 86400000);
     return targetDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  };
+
+  useEffect(() => {
+    // Smooth first-launch trigger for un-onboarded users (Option A)
+    if (!profile.has_completed_onboarding && !profile.onboarding_skipped) {
+      const timer = setTimeout(() => {
+        setOnboardingModalVisible(true);
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [profile.has_completed_onboarding, profile.onboarding_skipped]);
+
+  const formatRoadmapDate = (dateStr?: string) => {
+    if (!dateStr) return '';
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   const handleConfirmDeleteMeal = (mealId: string, dishName: string) => {
@@ -129,25 +148,68 @@ export default function TodayDashboardScreen() {
         </View>
       </View>
 
-      {/* 1-Line Minimal Onboarding Welcome Banner */}
-      {!profile.has_seen_welcome_card && (
-        <View style={styles.welcomeBanner}>
-          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Sparkles size={16} color="#4F46E5" />
-            <Text style={styles.welcomeBannerText}>
-              👋 <Text style={{ fontWeight: '800' }}>Welcome to CalSnap AI!</Text> Snap any plate photo or tap a staple to log your first meal.
+      {/* Option B: Gentle Setup Prompt if user skipped Option A modal on launch */}
+      {!profile.has_completed_onboarding && profile.onboarding_skipped && (
+        <View style={styles.roadmapPromptCard}>
+          <View style={{ flex: 1, paddingRight: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+              <Sparkles size={16} color="#4F46E5" />
+              <Text style={styles.roadmapPromptTitle}>Personalize Your Finish Line</Text>
+            </View>
+            <Text style={styles.roadmapPromptSub}>
+              Calculate your tailored calorie target & projected goal date in 30 seconds.
             </Text>
           </View>
           <TouchableOpacity
+            style={styles.roadmapPromptBtn}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              dismissWelcomeCard();
+              setOnboardingModalVisible(true);
             }}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            activeOpacity={0.85}
           >
-            <X size={16} color="#64748B" />
+            <Text style={styles.roadmapPromptBtnText}>Set Goal</Text>
+            <ChevronRight size={14} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
+      )}
+
+      {/* Live Roadmap Progress Card once completed */}
+      {profile.has_completed_onboarding && (
+        <TouchableOpacity
+          style={styles.liveRoadmapCard}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setOnboardingModalVisible(true);
+          }}
+          activeOpacity={0.9}
+        >
+          <View style={styles.liveRoadmapHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+              <Target size={16} color="#10B981" />
+              <Text style={styles.liveRoadmapGoalText}>
+                {goals.weight_goal === 'Maintain'
+                  ? 'Goal: Maintain Weight'
+                  : `Goal: ${goals.target_weight_lbs} ${goals.weight_unit || 'lbs'}`}
+              </Text>
+            </View>
+            {goals.weight_goal !== 'Maintain' && goals.target_date && (
+              <View style={styles.targetDateBadge}>
+                <Calendar size={12} color="#047857" />
+                <Text style={styles.targetDateBadgeText}>
+                  {formatRoadmapDate(goals.target_date)}
+                </Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.liveRoadmapSub}>
+            {goals.weight_goal === 'Lose Weight'
+              ? `🔥 Daily Target: ${goals.daily_calories} kcal • On pace for your finish line!`
+              : goals.weight_goal === 'Build Muscle'
+              ? `💪 Daily Target: ${goals.daily_calories} kcal • Lean muscle building surplus`
+              : `⚖️ Daily Target: ${goals.daily_calories} kcal • Balanced maintenance`}
+          </Text>
+        </TouchableOpacity>
       )}
 
       {/* Date Navigation Strip */}
@@ -608,6 +670,12 @@ export default function TodayDashboardScreen() {
 
       {/* Meal Detail Sheet */}
       <MealDetailSheet meal={detailMeal} onClose={() => setDetailMeal(null)} />
+
+      {/* 30-Second First-Launch Onboarding Modal (Option A) */}
+      <OnboardingModal
+        visible={onboardingModalVisible}
+        onClose={() => setOnboardingModalVisible(false)}
+      />
     </ScrollView>
   );
 }
@@ -1026,5 +1094,86 @@ const styles = StyleSheet.create({
     color: '#334155',
     flex: 1,
     lineHeight: 16,
+  },
+  roadmapPromptCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#EEF2FF',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: '#C7D2FE',
+  },
+  roadmapPromptTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#3730A3',
+  },
+  roadmapPromptSub: {
+    fontSize: 11,
+    color: '#4F46E5',
+    lineHeight: 15,
+    marginTop: 2,
+  },
+  roadmapPromptBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#4F46E5',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  roadmapPromptBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  liveRoadmapCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  liveRoadmapHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  liveRoadmapGoalText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  targetDateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  targetDateBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#065F46',
+  },
+  liveRoadmapSub: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '600',
   },
 });
