@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   TextInput,
   Platform,
   KeyboardAvoidingView,
+  Keyboard,
 } from 'react-native';
 import {
   Target,
@@ -35,6 +36,7 @@ export function OnboardingModal({ visible, onClose }: OnboardingModalProps) {
   const completeOnboarding = useAppStore((state) => state.completeOnboarding);
   const skipOnboarding = useAppStore((state) => state.skipOnboarding);
   const goals = useAppStore((state) => state.goals);
+  const profile = useAppStore((state) => state.profile);
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -44,13 +46,52 @@ export function OnboardingModal({ visible, onClose }: OnboardingModalProps) {
   const [heightFeet, setHeightFeet] = useState<string>('5');
   const [heightInches, setHeightInches] = useState<string>('10');
   const [weightUnit, setWeightUnit] = useState<'lbs' | 'kg'>(goals.weight_unit || 'lbs');
-  const [currentWeightInput, setCurrentWeightInput] = useState<string>(
-    weightUnit === 'kg' ? '75' : '165'
+
+  const getInitialCurrentWeight = (unit: 'lbs' | 'kg') => {
+    if (profile.current_weight_kg && profile.current_weight_kg > 0) {
+      return unit === 'kg'
+        ? String(Math.round(profile.current_weight_kg * 10) / 10)
+        : String(Math.round(profile.current_weight_kg * 2.20462));
+    }
+    return unit === 'kg' ? '75' : '165';
+  };
+
+  const getInitialTargetWeight = (unit: 'lbs' | 'kg') => {
+    if (goals.target_weight_lbs && goals.target_weight_lbs > 0) {
+      return unit === 'kg'
+        ? String(Math.round((goals.target_weight_lbs / 2.20462) * 10) / 10)
+        : String(Math.round(goals.target_weight_lbs * 10) / 10);
+    }
+    return unit === 'kg' ? '68' : '150';
+  };
+
+  const [currentWeightInput, setCurrentWeightInput] = useState<string>(() =>
+    getInitialCurrentWeight(goals.weight_unit || 'lbs')
   );
-  const [targetWeightInput, setTargetWeightInput] = useState<string>(
-    weightUnit === 'kg' ? '68' : '150'
+  const [targetWeightInput, setTargetWeightInput] = useState<string>(() =>
+    getInitialTargetWeight(goals.weight_unit || 'lbs')
   );
-  const [weightGoal, setWeightGoal] = useState<'Lose Weight' | 'Maintain' | 'Build Muscle'>('Lose Weight');
+  const [weightGoal, setWeightGoal] = useState<'Lose Weight' | 'Maintain' | 'Build Muscle'>(
+    goals.weight_goal || 'Lose Weight'
+  );
+
+  // Reset or sync when modal becomes visible
+  useEffect(() => {
+    if (visible) {
+      setStep(1);
+      setValidationError(null);
+      const unit = goals.weight_unit || 'lbs';
+      setWeightUnit(unit);
+      setCurrentWeightInput(getInitialCurrentWeight(unit));
+      setTargetWeightInput(getInitialTargetWeight(unit));
+      if (goals.weight_goal) {
+        setWeightGoal(goals.weight_goal);
+      }
+      if (goals.cultural_preset) {
+        setCulturalPreset(goals.cultural_preset);
+      }
+    }
+  }, [visible]);
 
   // Step 2: Activity & Cuisine
   const [activity, setActivity] = useState<'Sedentary' | 'Light' | 'Moderate' | 'Very Active'>('Light');
@@ -61,13 +102,24 @@ export function OnboardingModal({ visible, onClose }: OnboardingModalProps) {
   // Validation Error
   const [validationError, setValidationError] = useState<string | null>(null);
 
+  // Safe Weight Unit Conversion
+  const convertWeightInput = (val: string, toUnit: 'lbs' | 'kg') => {
+    const num = parseFloat(val);
+    if (isNaN(num) || num <= 0) {
+      return toUnit === 'lbs' ? '165' : '75';
+    }
+    return toUnit === 'lbs'
+      ? String(Math.round(num * 2.20462))
+      : String(Math.round((num / 2.20462) * 10) / 10);
+  };
+
   // Clinical Mifflin-St Jeor & Projected Finish Line Calculations
   const computeRoadmap = () => {
     const ageVal = Math.max(13, Math.min(100, parseInt(age, 10) || 28));
     const ftVal = Math.max(3, Math.min(7, parseInt(heightFeet, 10) || 5));
     const inVal = Math.max(0, Math.min(11, parseInt(heightInches, 10) || 10));
-    const currWtVal = parseFloat(currentWeightInput) || (weightUnit === 'kg' ? 75 : 165);
-    const targWtVal = parseFloat(targetWeightInput) || (weightUnit === 'kg' ? 68 : 150);
+    const currWtVal = Math.max(30, parseFloat(currentWeightInput) || (weightUnit === 'kg' ? 75 : 165));
+    const targWtVal = Math.max(30, parseFloat(targetWeightInput) || (weightUnit === 'kg' ? 68 : 150));
 
     // Height in cm
     const totalInches = ftVal * 12 + inVal;
@@ -93,17 +145,16 @@ export function OnboardingModal({ visible, onClose }: OnboardingModalProps) {
 
     // 3. Goal Adjustment & Daily Calorie Target
     let targetCalories = tdee;
-    let dailyDeficit = 0;
 
     if (weightGoal === 'Lose Weight') {
       targetCalories = tdee * 0.8; // 20% clinical deficit
-      dailyDeficit = tdee - targetCalories;
     } else if (weightGoal === 'Build Muscle') {
       targetCalories = tdee * 1.15; // 15% lean surplus
     }
 
     // Safety Floor: 1,200 kcal
     targetCalories = Math.max(1200, Math.round(targetCalories));
+    const effectiveDeficit = Math.max(0, Math.round(tdee - targetCalories));
 
     // 4. Clinical Macro Split: 28% Protein, 40% Carbs, 29% Fat
     const proteinG = Math.round((targetCalories * 0.28) / 4);
@@ -117,26 +168,36 @@ export function OnboardingModal({ visible, onClose }: OnboardingModalProps) {
 
     if (weightGoal === 'Lose Weight') {
       const weightDeltaLbs = Math.max(0, currentLbs - targetLbs);
-      const totalDeficitNeeded = weightDeltaLbs * 3500; // 3,500 kcal per lb of fat
-      const safeDailyDeficit = Math.max(250, dailyDeficit);
-      daysToGoal = Math.ceil(totalDeficitNeeded / safeDailyDeficit);
-      weeksToGoal = Math.max(1, Math.round(daysToGoal / 7));
-
-      const finishDate = new Date(Date.now() + daysToGoal * 86400000);
-      projectedDateStr = finishDate.toISOString().split('T')[0];
+      if (weightDeltaLbs > 0) {
+        const totalDeficitNeeded = weightDeltaLbs * 3500; // 3,500 kcal per lb of fat
+        const safeDailyDeficit = Math.max(250, effectiveDeficit);
+        daysToGoal = Math.ceil(totalDeficitNeeded / safeDailyDeficit);
+        weeksToGoal = Math.max(1, Math.round(daysToGoal / 7));
+        const finishDate = new Date(Date.now() + daysToGoal * 86400000);
+        projectedDateStr = finishDate.toISOString().split('T')[0];
+      } else {
+        daysToGoal = 0;
+        weeksToGoal = 0;
+        projectedDateStr = '';
+      }
     } else if (weightGoal === 'Build Muscle') {
       const weightDeltaLbs = Math.max(0, targetLbs - currentLbs);
-      // Realistic lean muscle gain: ~0.5 lb / week
-      weeksToGoal = Math.max(2, Math.round(weightDeltaLbs / 0.5));
-      daysToGoal = weeksToGoal * 7;
-
-      const finishDate = new Date(Date.now() + daysToGoal * 86400000);
-      projectedDateStr = finishDate.toISOString().split('T')[0];
+      if (weightDeltaLbs > 0) {
+        // Realistic lean muscle gain: ~0.5 lb / week
+        weeksToGoal = Math.max(2, Math.round(weightDeltaLbs / 0.5));
+        daysToGoal = weeksToGoal * 7;
+        const finishDate = new Date(Date.now() + daysToGoal * 86400000);
+        projectedDateStr = finishDate.toISOString().split('T')[0];
+      } else {
+        daysToGoal = 0;
+        weeksToGoal = 0;
+        projectedDateStr = '';
+      }
     } else {
       // Maintain
       daysToGoal = 0;
       weeksToGoal = 0;
-      projectedDateStr = new Date().toISOString().split('T')[0];
+      projectedDateStr = '';
     }
 
     return {
@@ -157,6 +218,7 @@ export function OnboardingModal({ visible, onClose }: OnboardingModalProps) {
   const roadmap = computeRoadmap();
 
   const handleNextStep1 = () => {
+    Keyboard.dismiss();
     const curr = parseFloat(currentWeightInput);
     const targ = parseFloat(targetWeightInput);
     if (!curr || isNaN(curr) || curr < 30 || curr > 700) {
@@ -169,12 +231,23 @@ export function OnboardingModal({ visible, onClose }: OnboardingModalProps) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
+    if (weightGoal === 'Lose Weight' && curr <= targ) {
+      setValidationError('For weight loss, your goal weight should be lower than your current weight.');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      return;
+    }
+    if (weightGoal === 'Build Muscle' && curr >= targ) {
+      setValidationError('For muscle building, your goal weight should be higher than your current weight.');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      return;
+    }
     setValidationError(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setStep(2);
   };
 
   const handleNextStep2 = () => {
+    Keyboard.dismiss();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setStep(3);
   };
@@ -331,8 +404,9 @@ export function OnboardingModal({ visible, onClose }: OnboardingModalProps) {
                       onPress={() => {
                         if (weightUnit !== 'lbs') {
                           setWeightUnit('lbs');
-                          setCurrentWeightInput(String(Math.round(parseFloat(currentWeightInput || '75') * 2.20462)));
-                          setTargetWeightInput(String(Math.round(parseFloat(targetWeightInput || '68') * 2.20462)));
+                          setCurrentWeightInput(convertWeightInput(currentWeightInput, 'lbs'));
+                          setTargetWeightInput(convertWeightInput(targetWeightInput, 'lbs'));
+                          setValidationError(null);
                         }
                       }}
                     >
@@ -343,8 +417,9 @@ export function OnboardingModal({ visible, onClose }: OnboardingModalProps) {
                       onPress={() => {
                         if (weightUnit !== 'kg') {
                           setWeightUnit('kg');
-                          setCurrentWeightInput(String(Math.round((parseFloat(currentWeightInput || '165') / 2.20462) * 10) / 10));
-                          setTargetWeightInput(String(Math.round((parseFloat(targetWeightInput || '150') / 2.20462) * 10) / 10));
+                          setCurrentWeightInput(convertWeightInput(currentWeightInput, 'kg'));
+                          setTargetWeightInput(convertWeightInput(targetWeightInput, 'kg'));
+                          setValidationError(null);
                         }
                       }}
                     >
@@ -359,7 +434,10 @@ export function OnboardingModal({ visible, onClose }: OnboardingModalProps) {
                     <TextInput
                       style={styles.textInput}
                       value={currentWeightInput}
-                      onChangeText={setCurrentWeightInput}
+                      onChangeText={(val) => {
+                        setCurrentWeightInput(val);
+                        setValidationError(null);
+                      }}
                       keyboardType="decimal-pad"
                       maxLength={5}
                       placeholder={weightUnit === 'lbs' ? '165' : '75'}
@@ -370,7 +448,10 @@ export function OnboardingModal({ visible, onClose }: OnboardingModalProps) {
                     <TextInput
                       style={styles.textInput}
                       value={targetWeightInput}
-                      onChangeText={setTargetWeightInput}
+                      onChangeText={(val) => {
+                        setTargetWeightInput(val);
+                        setValidationError(null);
+                      }}
                       keyboardType="decimal-pad"
                       maxLength={5}
                       placeholder={weightUnit === 'lbs' ? '150' : '68'}
@@ -389,6 +470,7 @@ export function OnboardingModal({ visible, onClose }: OnboardingModalProps) {
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       setWeightGoal(g);
+                      setValidationError(null);
                     }}
                   >
                     <Text style={styles.strategyEmoji}>
@@ -510,15 +592,22 @@ export function OnboardingModal({ visible, onClose }: OnboardingModalProps) {
                   <Text style={styles.targetCalsUnit}>kcal / day</Text>
                 </View>
 
-                {weightGoal !== 'Maintain' && roadmap.projectedDateStr && (
+                {weightGoal !== 'Maintain' && roadmap.projectedDateStr && roadmap.daysToGoal > 0 ? (
                   <View style={styles.timelineBanner}>
                     <Calendar size={18} color="#065F46" />
                     <Text style={styles.timelineBannerText}>
                       Projected Goal: <Text style={{ fontWeight: '900' }}>{formatDisplayDate(roadmap.projectedDateStr)}</Text>
-                      {' '}(~{roadmap.weeksToGoal} weeks)
+                      {' '}(~{roadmap.weeksToGoal} {roadmap.weeksToGoal === 1 ? 'week' : 'weeks'})
                     </Text>
                   </View>
-                )}
+                ) : weightGoal !== 'Maintain' && roadmap.daysToGoal === 0 ? (
+                  <View style={styles.timelineBanner}>
+                    <Sparkles size={18} color="#065F46" />
+                    <Text style={styles.timelineBannerText}>
+                      🎉 You are already at or beyond your goal target!
+                    </Text>
+                  </View>
+                ) : null}
 
                 <View style={styles.statsPillRow}>
                   <View style={styles.statPill}>
@@ -534,7 +623,9 @@ export function OnboardingModal({ visible, onClose }: OnboardingModalProps) {
                         ? `+${Math.abs(roadmap.targetCalories - roadmap.tdee)} kcal`
                         : '0 (Balanced)'}
                     </Text>
-                    <Text style={styles.statPillLabel}>Daily Deficit</Text>
+                    <Text style={styles.statPillLabel}>
+                      {weightGoal === 'Build Muscle' ? 'Daily Surplus' : 'Daily Deficit'}
+                    </Text>
                   </View>
                 </View>
               </View>

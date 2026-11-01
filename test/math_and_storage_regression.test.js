@@ -533,6 +533,35 @@ assert.strictEqual(storage.goals.target_date, '2026-08-14');
 assert.strictEqual(storage.goals.cultural_preset, 'Indian Homestyle');
 console.log('✅ PASSED 7.3: Onboarding state lifecycle (skip vs complete) verified.');
 
+// 7.4: Unit Display & Safe Weight Conversion Math
+const convertWeightInput = (val, toUnit) => {
+  const num = parseFloat(val);
+  if (isNaN(num) || num <= 0) {
+    return toUnit === 'lbs' ? '165' : '75';
+  }
+  return toUnit === 'lbs'
+    ? String(Math.round(num * 2.20462))
+    : String(Math.round((num / 2.20462) * 10) / 10);
+};
+
+// Test safe conversion handles edge cases
+assert.strictEqual(convertWeightInput('', 'lbs'), '165');
+assert.strictEqual(convertWeightInput('', 'kg'), '75');
+assert.strictEqual(convertWeightInput('abc', 'lbs'), '165');
+assert.strictEqual(convertWeightInput('75', 'lbs'), '165');
+assert.strictEqual(convertWeightInput('165', 'kg'), '74.8');
+
+// Test formatDisplayTargetWeight logic
+const formatDisplayTargetWeight = (targetLbs, weightUnit) => {
+  const isKg = weightUnit === 'kg';
+  const val = isKg ? Math.round((targetLbs / 2.20462) * 10) / 10 : Math.round(targetLbs * 10) / 10;
+  return `${val} ${isKg ? 'kg' : 'lbs'}`;
+};
+
+assert.strictEqual(formatDisplayTargetWeight(150, 'lbs'), '150 lbs');
+assert.strictEqual(formatDisplayTargetWeight(150, 'kg'), '68 kg');
+console.log('✅ PASSED 7.4: Weight unit conversion (lbs <-> kg) and display formatting verified.');
+
 console.log('========================================================================');
 console.log('🎉 ALL REGRESSION TESTS PASSED CLEANLY (100% PASS RATE)!');
 console.log('========================================================================');

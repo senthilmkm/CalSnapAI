@@ -92,6 +92,13 @@ export default function TodayDashboardScreen() {
     return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
+  const formatDisplayTargetWeight = () => {
+    const isKg = goals.weight_unit === 'kg';
+    const targetLbs = goals.target_weight_lbs || 162;
+    const val = isKg ? Math.round((targetLbs / 2.20462) * 10) / 10 : Math.round(targetLbs * 10) / 10;
+    return `${val} ${isKg ? 'kg' : 'lbs'}`;
+  };
+
   const handleConfirmDeleteMeal = (mealId: string, dishName: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const dateLabel = getDateLabel(selectedDateOffset);
@@ -190,7 +197,7 @@ export default function TodayDashboardScreen() {
               <Text style={styles.liveRoadmapGoalText}>
                 {goals.weight_goal === 'Maintain'
                   ? 'Goal: Maintain Weight'
-                  : `Goal: ${goals.target_weight_lbs} ${goals.weight_unit || 'lbs'}`}
+                  : `Goal: ${formatDisplayTargetWeight()}`}
               </Text>
             </View>
             {goals.weight_goal !== 'Maintain' && goals.target_date && (
