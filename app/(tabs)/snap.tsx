@@ -1,6 +1,20 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Image, ScrollView, ActivityIndicator } from 'react-native';
-import { Camera, Image as ImageIcon, Mic, Zap, Sparkles, AlertCircle, XCircle, HelpCircle, Info, Barcode } from 'lucide-react-native';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  Image,
+  ScrollView,
+  ActivityIndicator,
+  Animated,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { Camera, Image as ImageIcon, Mic, Zap, Sparkles, AlertCircle, XCircle, HelpCircle, Info, Barcode, Check } from 'lucide-react-native';
 import { useFocusEffect } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
@@ -21,12 +35,86 @@ export default function SnapScreen() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [recordingVoice, setRecordingVoice] = useState(false);
   const [voiceNote, setVoiceNote] = useState('');
+  const [customNoteModalVisible, setCustomNoteModalVisible] = useState(false);
+  const [customNoteDraft, setCustomNoteDraft] = useState('');
   const [currentMealId, setCurrentMealId] = useState<string | null>(null);
   const [paywallVisible, setPaywallVisible] = useState(false);
   const [barcodeModalVisible, setBarcodeModalVisible] = useState(false);
   const [aiConsentModalVisible, setAiConsentModalVisible] = useState(false);
   const [pendingAIAction, setPendingAIAction] = useState<'camera' | 'gallery' | null>(null);
   const [cookingStyle, setCookingStyle] = useState<'raw' | 'light' | 'heavy'>('light');
+
+  // Scanner HUD Animated State
+  const scanAnim = useRef(new Animated.Value(0)).current;
+  const [scanPhaseIndex, setScanPhaseIndex] = useState(0);
+
+  // Dynamic context-adaptive scan phases
+  const getScanPhases = () => {
+    if (cookingStyle === 'raw') {
+      return [
+        { tag: '3D GEOMETRY', text: 'Scanning 3D food geometry & plate depth...', icon: '🔍' },
+        { tag: 'PRODUCE DETECTION', text: 'Identifying natural produce & piece size...', icon: '🍎' },
+        { tag: 'FIBER & DENSITY', text: 'Evaluating dietary fiber & moisture density...', icon: '🌿' },
+        { tag: 'CLINICAL NUTRITION', text: 'Computing clinical calories & macro distribution...', icon: '📊' },
+      ];
+    }
+    if (cookingStyle === 'heavy') {
+      return [
+        { tag: '3D GEOMETRY', text: 'Scanning 3D food geometry & portion volume...', icon: '🔍' },
+        { tag: 'DISH SEGMENTATION', text: 'Segmenting individual items & curry bases...', icon: '🍛' },
+        { tag: 'FAT CALIBRATION', text: 'Calibrating cooking oil & sauce absorption...', icon: '🧈' },
+        { tag: 'CLINICAL NUTRITION', text: 'Computing clinical calories & macro distribution...', icon: '🎯' },
+      ];
+    }
+    return [
+      { tag: '3D GEOMETRY', text: 'Scanning 3D food geometry & plate dimensions...', icon: '🔍' },
+      { tag: 'PORTION MASS', text: 'Identifying food items & calculating portion mass...', icon: '🥗' },
+      { tag: 'PREPARATION STYLE', text: 'Evaluating prep style & moisture density...', icon: '⚖️' },
+      { tag: 'CLINICAL NUTRITION', text: 'Computing clinical calories & macro distribution...', icon: '🎯' },
+    ];
+  };
+
+  const scanPhases = getScanPhases();
+
+  useEffect(() => {
+    let animLoop: Animated.CompositeAnimation | null = null;
+    let intervalId: any = null;
+
+    if (analyzing) {
+      setScanPhaseIndex(0);
+      animLoop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(scanAnim, {
+            toValue: 1,
+            duration: 1100,
+            useNativeDriver: true,
+          }),
+          Animated.timing(scanAnim, {
+            toValue: 0,
+            duration: 1100,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      animLoop.start();
+
+      intervalId = setInterval(() => {
+        setScanPhaseIndex((prev) => {
+          const next = (prev + 1) % 4;
+          Haptics.selectionAsync();
+          return next;
+        });
+      }, 650);
+    } else {
+      scanAnim.setValue(0);
+      setScanPhaseIndex(0);
+    }
+
+    return () => {
+      if (animLoop) animLoop.stop();
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [analyzing]);
 
   const profile = useAppStore((state) => state.profile);
   const setAIConsent = useAppStore((state) => state.setAIConsent);
@@ -277,23 +365,19 @@ export default function SnapScreen() {
         {
           text: '✍️ Type Custom Note',
           onPress: () => {
-            Alert.prompt(
-              'Meal Note',
-              'Enter details (e.g. "cooked in 2 tbsp ghee, ate half portion"):',
-              (text) => {
-                if (text) {
-                  setVoiceNote(text);
-                  setRecordingVoice(false);
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                }
-              }
-            );
+            setCustomNoteDraft(voiceNote || '');
+            setCustomNoteModalVisible(true);
           },
         },
         { text: 'Cancel', style: 'cancel' },
       ]
     );
   };
+
+  const laserTranslateY = scanAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [8, 220],
+  });
 
   return (
     <View style={styles.container}>
@@ -360,8 +444,51 @@ export default function SnapScreen() {
 
           {analyzing && (
             <View style={styles.analyzingOverlay}>
-              <ActivityIndicator size="large" color="#FFFFFF" />
-              <Text style={styles.analyzingText}>AI analyzing macros & ingredients...</Text>
+              {/* Animated Laser Scanning Beam */}
+              <Animated.View
+                style={[
+                  styles.laserBeam,
+                  {
+                    transform: [{ translateY: laserTranslateY }],
+                  },
+                ]}
+              />
+
+              {/* Glowing Corner HUD Reticle */}
+              <View style={styles.hudOverlayFrame} pointerEvents="none">
+                <View style={[styles.hudBracket, styles.hudTopLeft]} />
+                <View style={[styles.hudBracket, styles.hudTopRight]} />
+                <View style={[styles.hudBracket, styles.hudBottomLeft]} />
+                <View style={[styles.hudBracket, styles.hudBottomRight]} />
+              </View>
+
+              {/* Center AI Vision Status Card */}
+              <View style={styles.aiStatusCard}>
+                <View style={styles.aiStatusHeader}>
+                  <View style={styles.radarLiveDot} />
+                  <Text style={styles.aiStatusBadge}>
+                    AI RADAR • {scanPhases[scanPhaseIndex]?.tag || 'ANALYZING'}
+                  </Text>
+                </View>
+
+                <Text style={styles.aiPhaseText}>
+                  {scanPhases[scanPhaseIndex]?.icon} {scanPhases[scanPhaseIndex]?.text}
+                </Text>
+
+                {/* 4-Phase Progress Indicator */}
+                <View style={styles.phaseDotsRow}>
+                  {[0, 1, 2, 3].map((idx) => (
+                    <View
+                      key={idx}
+                      style={[
+                        styles.phaseDot,
+                        scanPhaseIndex >= idx && styles.phaseDotActive,
+                        scanPhaseIndex === idx && styles.phaseDotCurrent,
+                      ]}
+                    />
+                  ))}
+                </View>
+              </View>
             </View>
           )}
         </TouchableOpacity>
@@ -488,6 +615,60 @@ export default function SnapScreen() {
         onAgree={handleConsentAgree}
         onDecline={handleConsentDecline}
       />
+
+      {/* Cross-Platform Custom Note Modal (Android-Safe) */}
+      <Modal
+        visible={customNoteModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCustomNoteModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.noteModalOverlay}
+        >
+          <View style={styles.noteModalCard}>
+            <Text style={styles.noteModalTitle}>Add Meal Details</Text>
+            <Text style={styles.noteModalSub}>
+              Helps AI precision (e.g. "cooked in olive oil", "half portion", "2 boiled eggs")
+            </Text>
+            <TextInput
+              style={styles.noteModalInput}
+              value={customNoteDraft}
+              onChangeText={setCustomNoteDraft}
+              placeholder="e.g. 1 tbsp ghee, ate half..."
+              placeholderTextColor="#94A3B8"
+              autoFocus
+              maxLength={120}
+              returnKeyType="done"
+            />
+            <View style={styles.noteModalBtnRow}>
+              <TouchableOpacity
+                style={styles.noteCancelBtn}
+                onPress={() => setCustomNoteModalVisible(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.noteCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.noteSaveBtn}
+                onPress={() => {
+                  const trimmed = customNoteDraft.trim();
+                  if (trimmed) {
+                    setVoiceNote(trimmed);
+                    setRecordingVoice(false);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  }
+                  setCustomNoteModalVisible(false);
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.noteSaveBtnText}>Save Details</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -692,15 +873,124 @@ const styles = StyleSheet.create({
   },
   analyzingOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    backgroundColor: 'rgba(15, 23, 42, 0.72)',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 12,
+    padding: 16,
   },
-  analyzingText: {
+  laserBeam: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 3,
+    backgroundColor: '#10B981',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.95,
+    shadowRadius: 10,
+    elevation: 8,
+    zIndex: 10,
+  },
+  hudOverlayFrame: {
+    position: 'absolute',
+    top: 14,
+    bottom: 14,
+    left: 14,
+    right: 14,
+  },
+  hudBracket: {
+    position: 'absolute',
+    width: 22,
+    height: 22,
+    borderColor: '#10B981',
+  },
+  hudTopLeft: {
+    top: 0,
+    left: 0,
+    borderTopWidth: 3,
+    borderLeftWidth: 3,
+    borderTopLeftRadius: 6,
+  },
+  hudTopRight: {
+    top: 0,
+    right: 0,
+    borderTopWidth: 3,
+    borderRightWidth: 3,
+    borderTopRightRadius: 6,
+  },
+  hudBottomLeft: {
+    bottom: 0,
+    left: 0,
+    borderBottomWidth: 3,
+    borderLeftWidth: 3,
+    borderBottomLeftRadius: 6,
+  },
+  hudBottomRight: {
+    bottom: 0,
+    right: 0,
+    borderBottomWidth: 3,
+    borderRightWidth: 3,
+    borderBottomRightRadius: 6,
+  },
+  aiStatusCard: {
+    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(99, 102, 241, 0.5)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
+    elevation: 10,
+    maxWidth: '92%',
+    zIndex: 20,
+  },
+  aiStatusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginBottom: 6,
+  },
+  radarLiveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+  },
+  aiStatusBadge: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#818CF8',
+    letterSpacing: 1.2,
+  },
+  aiPhaseText: {
+    fontSize: 13,
+    fontWeight: '800',
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
+    textAlign: 'center',
+    lineHeight: 18,
+    minHeight: 36,
+  },
+  phaseDotsRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 10,
+  },
+  phaseDot: {
+    width: 14,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: '#334155',
+  },
+  phaseDotActive: {
+    backgroundColor: '#6366F1',
+  },
+  phaseDotCurrent: {
+    backgroundColor: '#10B981',
+    width: 22,
   },
   voiceBar: {
     flexDirection: 'row',
@@ -880,5 +1170,76 @@ const styles = StyleSheet.create({
     color: '#5B21B6',
     fontWeight: '600',
     flex: 1,
+  },
+  noteModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  noteModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 22,
+    width: '100%',
+    maxWidth: 360,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  noteModalTitle: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+  noteModalSub: {
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 16,
+    lineHeight: 16,
+  },
+  noteModalInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0F172A',
+    marginBottom: 18,
+  },
+  noteModalBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  noteCancelBtn: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  noteCancelBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  noteSaveBtn: {
+    flex: 1,
+    backgroundColor: '#4F46E5',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  noteSaveBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
 });
