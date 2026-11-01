@@ -168,13 +168,20 @@ class MockCalSnapStorage {
 
   getTodayScanCount() {
     const todayStr = this.getTodayKey();
+    if (this.profile.last_scan_timestamp) {
+      const lastScanMs = new Date(this.profile.last_scan_timestamp).getTime();
+      const nowMs = Date.now();
+      if (!isNaN(lastScanMs) && nowMs < lastScanMs - 120_000) {
+        return Math.max(1, this.profile.daily_scans_count || 1);
+      }
+    }
+    if (this.profile.last_scan_date && this.profile.last_scan_date > todayStr) {
+      return Math.max(1, this.profile.daily_scans_count || 1);
+    }
     if (this.profile.last_scan_date !== todayStr) {
       return 0;
     }
     const todayMeals = this.getMealsForDate(todayStr);
-    if (todayMeals.length === 0) {
-      return 0;
-    }
     const todayAIScanMeals = todayMeals.filter(
       (m) => m && m.image_uri && m.image_uri.length > 20 && m.image_uri !== 'MOCK_IMAGE_DATA'
     );
@@ -421,11 +428,11 @@ console.log('--- SECTION 6: Security & Daily Scan Quota Corner Cases ---');
 storage.reset();
 const todayStr = storage.getTodayKey();
 
-// Case A1: Stale AsyncStorage date match on morning open with 0 meals logged today
+// Case A1: Deleting meals does not bypass daily scan limit
 storage.profile.last_scan_date = todayStr;
-storage.profile.daily_scans_count = 1; // Leftover count from previous session/test run
-assert.strictEqual(storage.getTodayScanCount(), 0, 'Morning check MUST return 0 scans when 0 meals are logged today');
-console.log('✅ PASSED 6.1: Morning zero-meal guard prevents false scan depletion banner.');
+storage.profile.daily_scans_count = 1;
+assert.strictEqual(storage.getTodayScanCount(), 1, 'Deleting meals must preserve daily scan limit');
+console.log('✅ PASSED 6.1: Deleting meals does not bypass daily scan limits.');
 
 // Case A2: Calendar date rollover (last_scan_date was yesterday)
 storage.profile.last_scan_date = '2026-10-03';

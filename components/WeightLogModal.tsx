@@ -22,9 +22,16 @@ interface WeightLogModalProps {
 }
 
 export function WeightLogModal({ visible, onClose }: WeightLogModalProps) {
-  const [unit, setUnit] = useState<'kg' | 'lbs'>('kg');
+  const userUnit = useAppStore((state) => state.goals.weight_unit || 'lbs');
+  const [unit, setUnit] = useState<'kg' | 'lbs'>(userUnit);
   const [weightInput, setWeightInput] = useState<string>('');
   const [noteInput, setNoteInput] = useState<string>('');
+
+  React.useEffect(() => {
+    if (visible) {
+      setUnit(userUnit);
+    }
+  }, [visible, userUnit]);
 
   const addWeightEntry = useAppStore((state) => state.addWeightEntry);
 

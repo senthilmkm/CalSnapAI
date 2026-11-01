@@ -12,6 +12,7 @@ interface AppState {
   dismissStreakFreezeBanner: () => void;
   signInWithApple: (email: string) => void;
   signOut: () => void;
+  deleteAccount: () => void;
 
   // Goals & Targets
   goals: UserGoals;
@@ -131,6 +132,7 @@ export const useAppStore = create<AppState>()(
         id: 'guest-user-101',
         is_guest: true,
         is_pro_subscriber: false,
+        subscription_tier: 'free',
         streak_days: 0,
         streak_freeze_count: 1,
         last_logged_date: undefined,
@@ -174,11 +176,38 @@ export const useAppStore = create<AppState>()(
           },
         })),
 
+      deleteAccount: () =>
+        set(() => ({
+          meals: [],
+          profile: {
+            id: `guest-user-${Date.now()}`,
+            is_guest: true,
+            email: undefined,
+            is_pro_subscriber: false,
+            subscription_tier: 'free',
+            streak_days: 0,
+            streak_freeze_count: 1,
+            last_logged_date: undefined,
+            daily_scans_count: 0,
+            last_scan_date: new Date().toISOString().split('T')[0],
+            has_consented_ai_data_sharing: false,
+          },
+          goals: DEFAULT_GOALS,
+          water_logs: {},
+          weight_entries: [],
+        })),
+
       goals: DEFAULT_GOALS,
       updateGoals: (newGoals) =>
         set((state) => {
           const updated = { ...state.goals, ...newGoals };
-          if (newGoals.daily_calories && newGoals.daily_calories !== state.goals.daily_calories) {
+          if (
+            newGoals.daily_calories &&
+            newGoals.daily_calories !== state.goals.daily_calories &&
+            newGoals.daily_protein_g === undefined &&
+            newGoals.daily_carbs_g === undefined &&
+            newGoals.daily_fat_g === undefined
+          ) {
             const cals = newGoals.daily_calories;
             // Clinical Ratio: 28% Protein (4 kcal/g), 40% Carbs (4 kcal/g), 29% Fat (9 kcal/g)
             updated.daily_protein_g = Math.round((cals * 0.28) / 4);
@@ -601,13 +630,31 @@ export const useAppStore = create<AppState>()(
       getTodayScanCount: () => {
         const todayStr = getTodayKey();
         const state = get();
+
+        // Security Check 1: Time-Travel Clock Roll-Back Detection
+        // If current clock is earlier than the last recorded scan timestamp, clock was rolled backwards
+        if (state.profile.last_scan_timestamp) {
+          const lastScanMs = new Date(state.profile.last_scan_timestamp).getTime();
+          const nowMs = Date.now();
+          if (!isNaN(lastScanMs) && nowMs < lastScanMs - 120_000) {
+            // Clock was rolled back into the past -> lock quota
+            return Math.max(1, state.profile.daily_scans_count || 1);
+          }
+        }
+
+        // Security Check 2: Future Date Tampering Detection
+        // If last recorded scan date is in the future compared to device today, device clock was altered
+        if (state.profile.last_scan_date && state.profile.last_scan_date > todayStr) {
+          return Math.max(1, state.profile.daily_scans_count || 1);
+        }
+
         if (state.profile.last_scan_date !== todayStr) {
           return 0;
         }
+
+        // Loophole Fix: Do NOT reset scan count if todayMeals.length === 0.
+        // Scan quota must persist even if the user deletes logged meals or clears diary.
         const todayMeals = state.getTodayMeals();
-        if (todayMeals.length === 0) {
-          return 0;
-        }
         const todayAIScanMeals = todayMeals.filter(
           (m) => m && m.image_uri && m.image_uri.length > 20 && m.image_uri !== 'MOCK_IMAGE_DATA'
         );

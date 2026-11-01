@@ -55,7 +55,11 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
         }
 
         const { customerInfo } = await Purchases.purchasePackage(pkgToPurchase);
-        if (typeof customerInfo.entitlements.active['pro_access'] !== 'undefined') {
+        const proEntitlement = customerInfo.entitlements.active['pro_access'];
+        if (typeof proEntitlement !== 'undefined') {
+          const prodId = (proEntitlement?.productIdentifier || '').toLowerCase();
+          const tier = prodId.includes('yearly') || prodId.includes('annual') || selectedPlan === 'annual' ? 'annual' : 'monthly';
+          setProfile({ is_pro_subscriber: true, subscription_tier: tier });
           Alert.alert(
             '🎉 Welcome to CalSnap AI Pro!',
             `Your ${pricingConfig.annual.trial_days}-Day Free Trial is now active. You will not be charged until your trial ends.`
@@ -83,8 +87,11 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
     try {
       if (Platform.OS === 'ios') {
         const customerInfo = await Purchases.restorePurchases();
-        if (typeof customerInfo.entitlements.active['pro_access'] !== 'undefined') {
-          setProfile({ is_pro_subscriber: true });
+        const proEntitlement = customerInfo.entitlements.active['pro_access'];
+        if (typeof proEntitlement !== 'undefined') {
+          const prodId = (proEntitlement?.productIdentifier || '').toLowerCase();
+          const tier = prodId.includes('yearly') || prodId.includes('annual') ? 'annual' : 'monthly';
+          setProfile({ is_pro_subscriber: true, subscription_tier: tier });
           Alert.alert('Purchases Restored', 'Your CalSnap Pro access has been restored!');
           onClose();
           return;

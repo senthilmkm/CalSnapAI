@@ -17,8 +17,14 @@ export default function RootLayout() {
 
         // Listen for subscription status updates
         Purchases.addCustomerInfoUpdateListener((info) => {
-          const isPro = typeof info.entitlements.active['pro_access'] !== 'undefined';
-          setProfile({ is_pro_subscriber: isPro });
+          const proEntitlement = info.entitlements.active['pro_access'];
+          const isPro = typeof proEntitlement !== 'undefined';
+          let tier: 'annual' | 'monthly' | 'free' = 'free';
+          if (isPro && proEntitlement) {
+            const prodId = (proEntitlement.productIdentifier || '').toLowerCase();
+            tier = prodId.includes('yearly') || prodId.includes('annual') ? 'annual' : 'monthly';
+          }
+          setProfile({ is_pro_subscriber: isPro, subscription_tier: tier });
         });
       } catch (e) {
         console.warn('RevenueCat SDK Initialization Warning:', e);

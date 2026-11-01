@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Dimensions } from 'react-native';
-import { FileText, Download, TrendingUp, Award, Flame, Zap } from 'lucide-react-native';
+import { FileText, Download, TrendingUp, Award, Flame, Zap, ChartPie } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../../services/storage';
 import { exportNutritionPDFReport, exportNutritionCSVReport } from '../../services/pdfExport';
@@ -94,26 +94,49 @@ export default function InsightsScreen() {
   const getWeeklyBankedCalories = useAppStore((state) => state.getWeeklyBankedCalories);
   const realBankedCalories = getWeeklyBankedCalories();
 
-  // Clinical Grade Nutrition Quality Score Algorithm
+  // Active Logged Days in selected Range
+  const rangeActiveDaysSet = new Set(
+    rangeMeals.map((m) => {
+      const d = new Date(m.timestamp);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    })
+  );
+  const rangeActiveDays = rangeActiveDaysSet.size || 1;
+
+  // Macro Totals & Averages for the selected range
+  const totalRangeProtein = rangeMeals.reduce((acc, m) => acc + (Number(m.total_protein_g) || 0), 0);
+  const totalRangeCarbs = rangeMeals.reduce((acc, m) => acc + (Number(m.total_carbs_g) || 0), 0);
+  const totalRangeFat = rangeMeals.reduce((acc, m) => acc + (Number(m.total_fat_g) || 0), 0);
+
+  const avgDailyProtein = rangeMeals.length > 0 ? Math.round(totalRangeProtein / rangeActiveDays) : 0;
+  const avgDailyCarbs = rangeMeals.length > 0 ? Math.round(totalRangeCarbs / rangeActiveDays) : 0;
+  const avgDailyFat = rangeMeals.length > 0 ? Math.round(totalRangeFat / rangeActiveDays) : 0;
+
+  const totalMacroGrams = (totalRangeProtein + totalRangeCarbs + totalRangeFat) || 1;
+  const proteinPct = rangeMeals.length > 0 ? Math.round((totalRangeProtein / totalMacroGrams) * 100) : 0;
+  const carbsPct = rangeMeals.length > 0 ? Math.round((totalRangeCarbs / totalMacroGrams) * 100) : 0;
+  const fatPct = rangeMeals.length > 0 ? Math.max(0, 100 - proteinPct - carbsPct) : 0;
+
+  // Clinical Grade Nutrition Quality Score Algorithm (strictly scoped to rangeMeals)
   let qualityScore = 0;
   let qualityBadge = 'NO DATA';
-  let qualityDesc = 'Log your first meal to calculate your personalized Clinical Nutrition Quality Score.';
+  let qualityDesc = `Log meals in this ${chartRange}-day window to calculate your personalized Clinical Nutrition Quality Score.`;
 
-  if (meals.length > 0) {
+  if (rangeMeals.length > 0) {
     const targetProteinPerMeal = (goals.daily_protein_g || 140) / 3;
-    const avgProtein = Math.round(meals.reduce((acc, m) => acc + (Number(m.total_protein_g) || 0), 0) / meals.length);
+    const avgProtein = Math.round(totalRangeProtein / rangeMeals.length);
     
     // 1. Protein Adequacy (Max 40 pts)
     const proteinRatio = Math.min(1.5, avgProtein / Math.max(1, targetProteinPerMeal));
     const proteinPts = Math.round(proteinRatio * 40);
 
     // 2. Glycemic Stability (Max 40 pts)
-    const lowGlucoseMeals = meals.filter((m) => m.glucose_impact_score === 'LOW').length;
-    const glycemicRatio = lowGlucoseMeals / meals.length;
+    const lowGlucoseMeals = rangeMeals.filter((m) => m.glucose_impact_score === 'LOW').length;
+    const glycemicRatio = lowGlucoseMeals / rangeMeals.length;
     const glycemicPts = Math.round(glycemicRatio * 40);
 
     // 3. Oil Control (Max 20 pts)
-    const avgOil = meals.reduce((acc, m) => acc + (Number(m.estimated_oil_g) || 0), 0) / meals.length;
+    const avgOil = rangeMeals.reduce((acc, m) => acc + (Number(m.estimated_oil_g) || 0), 0) / rangeMeals.length;
     const oilPts = avgOil <= 12 ? 20 : avgOil <= 20 ? 12 : 5;
 
     qualityScore = Math.min(100, Math.max(40, proteinPts + glycemicPts + oilPts));
@@ -125,8 +148,7 @@ export default function InsightsScreen() {
     }`;
   }
 
-  // Weekly Net Deficit & Fat Loss Projection Math
-  const target7DayTotal = (goals.daily_calories || 2000) * 7;
+  // Weekly Net Deficit & Fat Loss Projection Math (Active Logged Days Logic - prevents ghost fasting bug)
   const last7Days = getLastDays(7);
   const last7DaysSet = new Set(last7Days.map((d) => d.key));
   const last7DaysMeals = meals.filter((meal) => {
@@ -135,9 +157,23 @@ export default function InsightsScreen() {
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     return last7DaysSet.has(key);
   });
-  const actual7DayConsumed = last7DaysMeals.reduce((acc, m) => acc + (Number(m.total_calories) || 0), 0);
-  const netWeeklyDeficit = target7DayTotal - actual7DayConsumed;
-  const projectedWeeklyFatLossKg = Math.max(0, Math.round((netWeeklyDeficit / 7700) * 100) / 100);
+
+  const last7DaysLoggedDates = new Set<string>();
+  let actual7DayConsumed = 0;
+  for (const m of last7DaysMeals) {
+    const d = new Date(m.timestamp);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    last7DaysLoggedDates.add(key);
+    actual7DayConsumed += Number(m.total_calories) || 0;
+  }
+  const loggedDaysCount = last7DaysLoggedDates.size;
+  const dailyTarget = goals.daily_calories || 2000;
+
+  const targetForLoggedDays = dailyTarget * loggedDaysCount;
+  const netDeficitSoFar = targetForLoggedDays - actual7DayConsumed;
+  const avgDailyDeficit = loggedDaysCount > 0 ? Math.round(netDeficitSoFar / loggedDaysCount) : 0;
+  const projectedWeeklyDeficit = avgDailyDeficit * 7;
+  const projectedWeeklyFatLossKg = Math.max(0, Math.round((projectedWeeklyDeficit / 7700) * 100) / 100);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
@@ -152,18 +188,38 @@ export default function InsightsScreen() {
             <Award size={18} color="#4F46E5" />
             <Text style={styles.deficitCardTitle}>7-Day Net Calorie Deficit</Text>
           </View>
-          <View style={[styles.deficitPill, netWeeklyDeficit >= 0 ? styles.deficitPillPos : styles.deficitPillNeg]}>
-            <Text style={[styles.deficitPillText, netWeeklyDeficit >= 0 ? styles.deficitPillTextPos : styles.deficitPillTextNeg]}>
-              {netWeeklyDeficit >= 0 ? `${netWeeklyDeficit} kcal Deficit` : `${Math.abs(netWeeklyDeficit)} kcal Surplus`}
-            </Text>
-          </View>
+          {loggedDaysCount === 0 ? (
+            <View style={[styles.deficitPill, styles.deficitPillNeutral]}>
+              <Text style={[styles.deficitPillText, { color: '#64748B' }]}>No Data</Text>
+            </View>
+          ) : (
+            <View style={[styles.deficitPill, netDeficitSoFar >= 0 ? styles.deficitPillPos : styles.deficitPillNeg]}>
+              <Text style={[styles.deficitPillText, netDeficitSoFar >= 0 ? styles.deficitPillTextPos : styles.deficitPillTextNeg]}>
+                {netDeficitSoFar >= 0 ? `${netDeficitSoFar} kcal Deficit` : `${Math.abs(netDeficitSoFar)} kcal Surplus`}
+              </Text>
+            </View>
+          )}
         </View>
 
         <Text style={styles.deficitDesc}>
-          {netWeeklyDeficit >= 0
-            ? `🔥 You are currently in a net ${netWeeklyDeficit} kcal deficit over the last 7 days! Projected fat loss: ~${projectedWeeklyFatLossKg} kg/week.`
-            : `⚠️ You are ${Math.abs(netWeeklyDeficit)} kcal above your 7-day target. Adjust portion sliders to get back in a deficit!`}
+          {loggedDaysCount === 0
+            ? '⚪ Log your meals for at least 1 day to calculate your active calorie deficit and fat loss projection.'
+            : loggedDaysCount < 3
+            ? `📊 Active: ${loggedDaysCount} of 7 days logged (${netDeficitSoFar >= 0 ? `+${netDeficitSoFar} kcal deficit` : `${Math.abs(netDeficitSoFar)} kcal surplus`} so far). Log 3+ days for full weekly precision!`
+            : netDeficitSoFar >= 0
+            ? `🔥 Across ${loggedDaysCount} logged days, your weekly pace is a net ${projectedWeeklyDeficit} kcal deficit. Projected fat loss: ~${projectedWeeklyFatLossKg} kg/week.`
+            : `⚠️ Across ${loggedDaysCount} logged days, you are ${Math.abs(netDeficitSoFar)} kcal above target. Adjust portion sliders to return to a deficit!`}
         </Text>
+
+        {realBankedCalories > 0 && (
+          <View style={styles.deficitBankRow}>
+            <View style={styles.bankPillUnified}>
+              <Text style={styles.bankPillUnifiedText}>
+                🏦 +{realBankedCalories} kcal Flex Banked for Weekends
+              </Text>
+            </View>
+          </View>
+        )}
       </View>
 
       {/* Streak + Total Banner */}
@@ -261,29 +317,68 @@ export default function InsightsScreen() {
       {/* Weight Progress SVG Trend Chart */}
       <WeightTrendChart />
 
+      {/* Average Macro Distribution Card */}
+      <View style={styles.card}>
+        <View style={styles.cardHeaderRow}>
+          <ChartPie size={20} color="#4F46E5" />
+          <Text style={styles.cardTitle}>Average Macro Distribution ({chartRange}D)</Text>
+        </View>
+
+        {rangeMeals.length === 0 ? (
+          <Text style={styles.emptyCardText}>No meals logged in this {chartRange}-day window.</Text>
+        ) : (
+          <>
+            {/* Visual 3-Segment Progress Bar */}
+            <View style={styles.macroSplitBar}>
+              <View style={[styles.macroSplitSegment, { flex: Math.max(1, proteinPct), backgroundColor: '#10B981', borderTopLeftRadius: 6, borderBottomLeftRadius: 6 }]} />
+              <View style={[styles.macroSplitSegment, { flex: Math.max(1, carbsPct), backgroundColor: '#F59E0B' }]} />
+              <View style={[styles.macroSplitSegment, { flex: Math.max(1, fatPct), backgroundColor: '#8B5CF6', borderTopRightRadius: 6, borderBottomRightRadius: 6 }]} />
+            </View>
+
+            {/* 3 Macro Summary Boxes */}
+            <View style={styles.macroBoxesRow}>
+              <View style={[styles.macroBox, { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <View style={[styles.dot, { backgroundColor: '#10B981' }]} />
+                  <Text style={[styles.macroBoxTitle, { color: '#047857' }]}>Protein</Text>
+                </View>
+                <Text style={styles.macroBoxVal}>{avgDailyProtein}g <Text style={styles.macroBoxUnit}>/day</Text></Text>
+                <Text style={styles.macroBoxSub}>{proteinPct}% • Goal {goals.daily_protein_g}g</Text>
+              </View>
+
+              <View style={[styles.macroBox, { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <View style={[styles.dot, { backgroundColor: '#F59E0B' }]} />
+                  <Text style={[styles.macroBoxTitle, { color: '#B45309' }]}>Carbs</Text>
+                </View>
+                <Text style={styles.macroBoxVal}>{avgDailyCarbs}g <Text style={styles.macroBoxUnit}>/day</Text></Text>
+                <Text style={styles.macroBoxSub}>{carbsPct}% • Goal {goals.daily_carbs_g}g</Text>
+              </View>
+
+              <View style={[styles.macroBox, { backgroundColor: '#F5F3FF', borderColor: '#DDD6FE' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <View style={[styles.dot, { backgroundColor: '#8B5CF6' }]} />
+                  <Text style={[styles.macroBoxTitle, { color: '#6D28D9' }]}>Fat</Text>
+                </View>
+                <Text style={styles.macroBoxVal}>{avgDailyFat}g <Text style={styles.macroBoxUnit}>/day</Text></Text>
+                <Text style={styles.macroBoxSub}>{fatPct}% • Goal {goals.daily_fat_g}g</Text>
+              </View>
+            </View>
+          </>
+        )}
+      </View>
+
       {/* Nutrition Quality Score */}
       <View style={styles.card}>
         <View style={styles.cardHeaderRow}>
           <Award size={20} color="#F59E0B" />
-          <Text style={styles.cardTitle}>Nutrition Quality Score</Text>
+          <Text style={styles.cardTitle}>Nutrition Quality Score ({chartRange}D)</Text>
         </View>
         <View style={styles.scoreRow}>
-          <Text style={styles.scoreNumber}>{meals.length > 0 ? `${qualityScore}/100` : '--/100'}</Text>
+          <Text style={styles.scoreNumber}>{rangeMeals.length > 0 ? `${qualityScore}/100` : '--/100'}</Text>
           <Text style={styles.scoreBadge}>{qualityBadge}</Text>
         </View>
         <Text style={styles.scoreDesc}>{qualityDesc}</Text>
-      </View>
-
-      {/* Weekly Calorie Banking */}
-      <View style={styles.card}>
-        <View style={styles.cardHeaderRow}>
-          <TrendingUp size={20} color="#10B981" />
-          <Text style={styles.cardTitle}>Weekly Calorie Bank</Text>
-        </View>
-        <Text style={styles.bankBigVal}>+{realBankedCalories} kcal</Text>
-        <Text style={styles.bankSubText}>
-          {`Saved +${realBankedCalories} kcal this week below your daily ${goals.daily_calories} kcal target. Perfect for weekend flex dining!`}
-        </Text>
       </View>
 
       {/* Export Card */}
@@ -354,6 +449,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF2F2',
     borderColor: '#FCA5A5',
   },
+  deficitPillNeutral: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#CBD5E1',
+  },
   deficitPillText: {
     fontSize: 12,
     fontWeight: '800',
@@ -370,6 +469,23 @@ const styles = StyleSheet.create({
     color: '#475569',
     marginTop: 8,
     lineHeight: 18,
+  },
+  deficitBankRow: {
+    marginTop: 10,
+    flexDirection: 'row',
+  },
+  bankPillUnified: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  bankPillUnifiedText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#065F46',
   },
 
   bannerRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
@@ -431,8 +547,55 @@ const styles = StyleSheet.create({
   },
   scoreDesc: { fontSize: 13, color: '#64748B', lineHeight: 18 },
 
-  bankBigVal: { fontSize: 28, fontWeight: '900', color: '#10B981', marginBottom: 4 },
-  bankSubText: { fontSize: 13, color: '#64748B', lineHeight: 18 },
+  emptyCardText: { fontSize: 13, color: '#64748B', fontStyle: 'italic', marginVertical: 8 },
+
+  macroSplitBar: {
+    flexDirection: 'row',
+    height: 12,
+    borderRadius: 6,
+    overflow: 'hidden',
+    marginBottom: 14,
+    backgroundColor: '#E2E8F0',
+  },
+  macroSplitSegment: {
+    height: '100%',
+  },
+  macroBoxesRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  macroBox: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 10,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  macroBoxTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  macroBoxVal: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#0F172A',
+    marginTop: 4,
+  },
+  macroBoxUnit: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  macroBoxSub: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+    marginTop: 2,
+  },
 
   exportCard: {
     backgroundColor: '#EEF2FF', borderRadius: 20, padding: 20,

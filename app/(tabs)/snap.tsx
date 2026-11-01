@@ -212,7 +212,7 @@ export default function SnapScreen() {
       
       const newMeal = addMeal({
         dish_name: result.dish_name,
-        meal_type: 'Lunch',
+        meal_type: result.meal_type || 'Lunch',
         items: result.items,
         estimated_oil_g: finalOilGrams,
         portion_multiplier: 1.0,

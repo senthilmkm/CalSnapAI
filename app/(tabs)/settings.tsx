@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet, Alert, TextInput } from 'react-native';
-import { User, Bell, Trash2, Sparkles, Smartphone, Target, Calculator, Info, Globe } from 'lucide-react-native';
+import { View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet, Alert, TextInput, Modal, Platform, ActivityIndicator } from 'react-native';
+import { User, Bell, Trash2, Sparkles, Smartphone, Target, Calculator, Info, Globe, Clock, ShieldAlert, X, Check } from 'lucide-react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Haptics from 'expo-haptics';
+import Purchases from 'react-native-purchases';
 import { useAppStore } from '../../services/storage';
 import { scheduleMealReminders } from '../../services/notifications';
 import { FAQAccordion } from '../../components/FAQAccordion';
@@ -11,34 +12,29 @@ import { MacroCalculatorModal } from '../../components/MacroCalculatorModal';
 import Constants from 'expo-constants';
 import pricingConfig from '../../config/pricing.json';
 
+const PRESET_TIMES: Record<'breakfast' | 'lunch' | 'dinner', string[]> = {
+  breakfast: ['07:00', '07:30', '08:00', '08:30', '09:00', '09:30'],
+  lunch: ['11:30', '12:00', '12:30', '13:00', '13:30', '14:00'],
+  dinner: ['18:00', '18:30', '19:00', '19:30', '20:00', '20:30'],
+};
+
 export default function SettingsScreen() {
   const [paywallVisible, setPaywallVisible] = useState(false);
   const [macroModalVisible, setMacroModalVisible] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
+
+  // Time picker modal state (Android-safe, cross-platform)
+  const [timePickerMeal, setTimePickerMeal] = useState<'breakfast' | 'lunch' | 'dinner' | null>(null);
+  const [timeInputVal, setTimeInputVal] = useState<string>('08:30');
+  const [timePickerError, setTimePickerError] = useState<string | null>(null);
 
   const goals = useAppStore((state) => state.goals);
   const updateGoals = useAppStore((state) => state.updateGoals);
   const profile = useAppStore((state) => state.profile);
-
-  const [directCalorieInput, setDirectCalorieInput] = useState<string>(String(goals.daily_calories));
-  const [calorieInputError, setCalorieInputError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setDirectCalorieInput(String(goals.daily_calories));
-    setCalorieInputError(null);
-  }, [goals.daily_calories]);
-
-  const handleDirectCalorieChange = (val: string) => {
-    setDirectCalorieInput(val);
-    const num = parseInt(val, 10);
-    if (isNaN(num) || num < 500 || num > 10000) {
-      setCalorieInputError('Target must be 500 – 10,000 kcal');
-    } else {
-      setCalorieInputError(null);
-      updateGoals({ daily_calories: num });
-    }
-  };
+  const setProfile = useAppStore((state) => state.setProfile);
   const signInWithApple = useAppStore((state) => state.signInWithApple);
   const signOut = useAppStore((state) => state.signOut);
+  const deleteAccount = useAppStore((state) => state.deleteAccount);
   const setAIConsent = useAppStore((state) => state.setAIConsent);
 
   const notifications = useAppStore((state) => state.notifications);
@@ -48,6 +44,33 @@ export default function SettingsScreen() {
   const updateHistory = useAppStore((state) => state.updateHistorySettings);
   const clearAllHistory = useAppStore((state) => state.clearAllHistory);
   const clearPhotoCache = useAppStore((state) => state.clearPhotoCache);
+
+  const [directCalorieInput, setDirectCalorieInput] = useState<string>(String(goals.daily_calories));
+  const [calorieInputError, setCalorieInputError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDirectCalorieInput(String(goals.daily_calories));
+    setCalorieInputError(null);
+  }, [goals.daily_calories]);
+
+  const handleDirectCalorieTextChange = (val: string) => {
+    setDirectCalorieInput(val);
+    setCalorieInputError(null);
+  };
+
+  const handleDirectCalorieSubmitOrBlur = () => {
+    const num = parseInt(directCalorieInput, 10);
+    if (isNaN(num) || num < 500 || num > 10000) {
+      setCalorieInputError('Target must be 500 – 10,000 kcal');
+      setDirectCalorieInput(String(goals.daily_calories));
+    } else {
+      setCalorieInputError(null);
+      setDirectCalorieInput(String(num));
+      if (num !== goals.daily_calories) {
+        updateGoals({ daily_calories: num });
+      }
+    }
+  };
 
   const handleToggleMasterNotifs = (val: boolean) => {
     updateNotifs({ master_enabled: val });
@@ -74,21 +97,27 @@ export default function SettingsScreen() {
     scheduleMealReminders({ ...notifications, streak_protection_alert: val });
   };
 
-  const handleChangeReminderTime = (mealKey: 'breakfast' | 'lunch' | 'dinner', currentVal: string) => {
+  const handleOpenTimePicker = (mealKey: 'breakfast' | 'lunch' | 'dinner', currentVal: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Alert.prompt(
-      `Set ${mealKey.charAt(0).toUpperCase() + mealKey.slice(1)} Reminder Time`,
-      `Enter custom time (e.g. 08:30, 13:00, 19:30):`,
-      (text) => {
-        if (!text || !text.trim()) return;
-        const timeKey = `${mealKey}_time` as const;
-        updateNotifs({ [timeKey]: text.trim() });
-        scheduleMealReminders({ ...notifications, [timeKey]: text.trim() });
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      },
-      'plain-text',
-      currentVal
-    );
+    setTimePickerMeal(mealKey);
+    setTimeInputVal(currentVal || (mealKey === 'breakfast' ? '08:30' : mealKey === 'lunch' ? '13:00' : '19:30'));
+    setTimePickerError(null);
+  };
+
+  const handleSaveReminderTime = () => {
+    if (!timePickerMeal) return;
+    const trimmed = timeInputVal.trim();
+    const TIME_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
+    if (!TIME_REGEX.test(trimmed)) {
+      setTimePickerError('Enter a valid 24h time format (HH:MM, e.g. 08:30 or 19:00)');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      return;
+    }
+    const timeKey = `${timePickerMeal}_time` as const;
+    updateNotifs({ [timeKey]: trimmed });
+    scheduleMealReminders({ ...notifications, [timeKey]: trimmed });
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setTimePickerMeal(null);
   };
 
   const [isAppleAuthAvailable, setIsAppleAuthAvailable] = useState(false);
@@ -113,24 +142,97 @@ export default function SettingsScreen() {
       }
     } catch (e: any) {
       if (e.code === 'ERR_REQUEST_CANCELED') return;
-      // Demo fallback for simulator/testing
+      // Fallback for simulator
       signInWithApple('john.doe@apple.com');
       Alert.alert('Signed in with Apple', 'Account linked successfully!');
     }
   };
 
-  const handleConfirmDeleteHistory = () => {
+  // Apple Guideline 5.1.1(v) Compliant Account Deletion
+  const handleDeleteAccount = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Alert.alert(
-      'Delete All History?',
-      'This will permanently delete all past logged meals, food photos, and streak records. This cannot be undone.',
+      'Delete Account & Data?',
+      'This will unlink your Apple ID and permanently erase all meal history, food photos, body metrics, and streak records.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete All',
+          text: 'Proceed to Delete',
           style: 'destructive',
           onPress: () => {
-            clearAllHistory();
-            Alert.alert('History Deleted', 'All meal history has been erased.');
+            Alert.alert(
+              'Final Confirmation',
+              'Are you completely sure? This action is irreversible and all your data will be permanently wiped.',
+              [
+                { text: 'Keep My Account', style: 'cancel' },
+                {
+                  text: 'Permanently Erase',
+                  style: 'destructive',
+                  onPress: () => {
+                    deleteAccount();
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                    Alert.alert('Account Deleted', 'Your account and all personal data have been completely deleted.');
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
+
+  // Restore Purchases (StoreKit / RevenueCat)
+  const handleRestorePurchases = async () => {
+    setIsRestoring(true);
+    try {
+      if (Platform.OS === 'ios') {
+        const customerInfo = await Purchases.restorePurchases();
+        const proEntitlement = customerInfo.entitlements.active['pro_access'];
+        if (typeof proEntitlement !== 'undefined') {
+          const prodId = (proEntitlement?.productIdentifier || '').toLowerCase();
+          const tier = prodId.includes('yearly') || prodId.includes('annual') ? 'annual' : 'monthly';
+          setProfile({ is_pro_subscriber: true, subscription_tier: tier });
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Alert.alert('Purchases Restored', 'Your CalSnap AI Pro subscription is now active!');
+          return;
+        }
+      }
+      Alert.alert('No Subscription Found', 'We could not find an active subscription for this Apple ID.');
+    } catch (e: any) {
+      Alert.alert('Restore Error', e.message || 'Unable to restore purchases at this time.');
+    } finally {
+      setIsRestoring(false);
+    }
+  };
+
+  const handleConfirmDeleteHistory = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert(
+      'Delete All Meal History?',
+      'This will permanently delete all past logged meals, food photos, and streak records. Your account and goals will be kept.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Yes, Delete Everything',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Final Confirmation',
+              'Are you sure you want to erase all meal logs? This action cannot be undone.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Confirm Delete',
+                  style: 'destructive',
+                  onPress: () => {
+                    clearAllHistory();
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                    Alert.alert('History Deleted', 'All meal history has been erased.');
+                  },
+                },
+              ]
+            );
           },
         },
       ]
@@ -150,6 +252,19 @@ export default function SettingsScreen() {
       '• 🔥 Streak & Profile Binding: Securely bind your daily streak count and macro preferences to your account.\n\n' +
       '• 👑 CalSnap Pro License: Restore and access your Pro subscription seamlessly across Apple devices.'
     );
+  };
+
+  const getActivePlanLabel = () => {
+    if (!profile.is_pro_subscriber) {
+      return pricingConfig.free_tier?.label || 'Free Tier (1 AI Snap / Day)';
+    }
+    if (profile.subscription_tier === 'annual') {
+      return `🎉 Active Plan: CalSnap AI Pro Annual (${pricingConfig.annual.display_price}/year)`;
+    }
+    if (profile.subscription_tier === 'monthly') {
+      return `🎉 Active Plan: CalSnap AI Pro Monthly (${pricingConfig.monthly.display_price}/month)`;
+    }
+    return `🎉 Active Plan: CalSnap AI Pro (Unlimited AI Scans)`;
   };
 
   return (
@@ -202,9 +317,14 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           )
         ) : (
-          <TouchableOpacity style={styles.signOutBtn} onPress={signOut}>
-            <Text style={styles.signOutText}>Sign Out Account</Text>
-          </TouchableOpacity>
+          <View>
+            <TouchableOpacity style={styles.signOutBtn} onPress={signOut} activeOpacity={0.85}>
+              <Text style={styles.signOutText}>Sign Out Account</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.deleteAccountBtn} onPress={handleDeleteAccount} activeOpacity={0.85}>
+              <Text style={styles.deleteAccountText}>Delete Account & Data</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* AI Data Sharing Consent Control (Apple Guideline 5.1.1(i) / 5.1.2(i)) */}
@@ -237,10 +357,13 @@ export default function SettingsScreen() {
                   calorieInputError ? styles.inlineCalorieInputError : null
                 ]}
                 value={directCalorieInput}
-                onChangeText={handleDirectCalorieChange}
+                onChangeText={handleDirectCalorieTextChange}
+                onBlur={handleDirectCalorieSubmitOrBlur}
+                onSubmitEditing={handleDirectCalorieSubmitOrBlur}
                 keyboardType="number-pad"
                 selectTextOnFocus
                 maxLength={5}
+                returnKeyType="done"
               />
               <Text style={styles.inlineCalorieUnit}>kcal</Text>
             </View>
@@ -316,18 +439,28 @@ export default function SettingsScreen() {
           <Sparkles size={20} color="#6366F1" />
           <Text style={styles.sectionTitle}>Subscription Plan</Text>
         </View>
-        <Text style={styles.planStatus}>
-          {profile.is_pro_subscriber
-            ? `🎉 Active Plan: CalSnap AI Pro (${pricingConfig.monthly.display_price}/mo or ${pricingConfig.annual.display_price}/yr)`
-            : pricingConfig.free_tier?.label || 'Free Tier (1 AI Snap / Day)'}
-        </Text>
-        <TouchableOpacity style={styles.manageSubBtn} onPress={() => setPaywallVisible(true)}>
-          <Text style={styles.manageSubText}>
-            {profile.is_pro_subscriber
-              ? pricingConfig.pro_tier?.manage_sub_label || 'Manage Subscription'
-              : pricingConfig.pro_tier?.upgrade_sub_label || 'Upgrade to Unlimited Pro'}
-          </Text>
-        </TouchableOpacity>
+        <Text style={styles.planStatus}>{getActivePlanLabel()}</Text>
+        <View style={styles.subBtnRow}>
+          <TouchableOpacity style={styles.manageSubBtn} onPress={() => setPaywallVisible(true)} activeOpacity={0.85}>
+            <Text style={styles.manageSubText}>
+              {profile.is_pro_subscriber
+                ? pricingConfig.pro_tier?.manage_sub_label || 'Manage Plan'
+                : pricingConfig.pro_tier?.upgrade_sub_label || 'Upgrade to Pro'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.restoreBtn}
+            onPress={handleRestorePurchases}
+            disabled={isRestoring}
+            activeOpacity={0.85}
+          >
+            {isRestoring ? (
+              <ActivityIndicator size="small" color="#4F46E5" />
+            ) : (
+              <Text style={styles.restoreBtnText}>Restore Purchases</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Notifications & Reminders Controls */}
@@ -348,7 +481,7 @@ export default function SettingsScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.rowLabel}>🍳 Breakfast Reminder</Text>
                 <TouchableOpacity
-                  onPress={() => handleChangeReminderTime('breakfast', notifications.breakfast_time || '08:30')}
+                  onPress={() => handleOpenTimePicker('breakfast', notifications.breakfast_time || '08:30')}
                   activeOpacity={0.7}
                   style={{ marginTop: 2 }}
                 >
@@ -364,7 +497,7 @@ export default function SettingsScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.rowLabel}>🥗 Lunch Reminder</Text>
                 <TouchableOpacity
-                  onPress={() => handleChangeReminderTime('lunch', notifications.lunch_time || '13:00')}
+                  onPress={() => handleOpenTimePicker('lunch', notifications.lunch_time || '13:00')}
                   activeOpacity={0.7}
                   style={{ marginTop: 2 }}
                 >
@@ -380,7 +513,7 @@ export default function SettingsScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.rowLabel}>🍲 Dinner Reminder</Text>
                 <TouchableOpacity
-                  onPress={() => handleChangeReminderTime('dinner', notifications.dinner_time || '19:30')}
+                  onPress={() => handleOpenTimePicker('dinner', notifications.dinner_time || '19:30')}
                   activeOpacity={0.7}
                   style={{ marginTop: 2 }}
                 >
@@ -458,6 +591,80 @@ export default function SettingsScreen() {
 
       {/* Macro Calculator & Goal Editor Modal */}
       <MacroCalculatorModal visible={macroModalVisible} onClose={() => setMacroModalVisible(false)} />
+
+      {/* Cross-Platform Time Picker Modal (Android-Safe) */}
+      <Modal
+        visible={timePickerMeal !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setTimePickerMeal(null)}
+      >
+        <View style={styles.timeModalOverlay}>
+          <View style={styles.timeModalCard}>
+            <View style={styles.timeModalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Clock size={20} color="#4F46E5" />
+                <Text style={styles.timeModalTitle}>
+                  Set {timePickerMeal ? timePickerMeal.charAt(0).toUpperCase() + timePickerMeal.slice(1) : ''} Time
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setTimePickerMeal(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <X size={20} color="#94A3B8" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.presetTitle}>Quick Presets</Text>
+            <View style={styles.presetRow}>
+              {timePickerMeal && PRESET_TIMES[timePickerMeal].map((t) => {
+                const isActive = timeInputVal === t;
+                return (
+                  <TouchableOpacity
+                    key={t}
+                    style={[styles.presetChip, isActive && styles.presetChipActive]}
+                    onPress={() => {
+                      setTimeInputVal(t);
+                      setTimePickerError(null);
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    <Text style={[styles.presetChipText, isActive && styles.presetChipTextActive]}>
+                      {t}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text style={styles.timeInputLabel}>Or enter custom 24h time (HH:MM):</Text>
+            <TextInput
+              style={[styles.timeInput, timePickerError ? styles.timeInputErrorBorder : null]}
+              value={timeInputVal}
+              onChangeText={(val) => {
+                setTimeInputVal(val);
+                setTimePickerError(null);
+              }}
+              placeholder="e.g. 08:30"
+              placeholderTextColor="#94A3B8"
+              maxLength={5}
+              keyboardType="numbers-and-punctuation"
+              returnKeyType="done"
+              onSubmitEditing={handleSaveReminderTime}
+            />
+            {timePickerError && (
+              <Text style={styles.timeInputError}>{timePickerError}</Text>
+            )}
+
+            <View style={styles.timeModalBtnRow}>
+              <TouchableOpacity style={styles.timeCancelBtn} onPress={() => setTimePickerMeal(null)}>
+                <Text style={styles.timeCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.timeSaveBtn} onPress={handleSaveReminderTime}>
+                <Text style={styles.timeSaveText}>Save Time</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -579,21 +786,56 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
   },
+  deleteAccountBtn: {
+    backgroundColor: '#FFF1F2',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+    marginTop: 8,
+  },
+  deleteAccountText: {
+    color: '#E11D48',
+    fontSize: 13,
+    fontWeight: '800',
+  },
   planStatus: {
     fontSize: 14,
     color: '#334155',
     fontWeight: '600',
     marginBottom: 12,
   },
+  subBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
   manageSubBtn: {
+    flex: 1,
     backgroundColor: '#EEF2FF',
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#C7D2FE',
   },
   manageSubText: {
+    color: '#4F46E5',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  restoreBtn: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+  },
+  restoreBtnText: {
     color: '#4F46E5',
     fontSize: 13,
     fontWeight: '800',
@@ -803,5 +1045,128 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#94A3B8',
     letterSpacing: 0.2,
+  },
+  timeModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  timeModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 22,
+    width: '100%',
+    maxWidth: 360,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  timeModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  timeModalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  presetTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  presetRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 16,
+  },
+  presetChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  presetChipActive: {
+    backgroundColor: '#4F46E5',
+    borderColor: '#4F46E5',
+  },
+  presetChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  presetChipTextActive: {
+    color: '#FFFFFF',
+  },
+  timeInputLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+    marginBottom: 6,
+  },
+  timeInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+    letterSpacing: 2,
+  },
+  timeInputErrorBorder: {
+    borderColor: '#EF4444',
+    backgroundColor: '#FEF2F2',
+  },
+  timeInputError: {
+    fontSize: 11,
+    color: '#EF4444',
+    fontWeight: '700',
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  timeModalBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 20,
+  },
+  timeCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+  },
+  timeCancelText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  timeSaveBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#4F46E5',
+    alignItems: 'center',
+  },
+  timeSaveText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
 });

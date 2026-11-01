@@ -1,9 +1,26 @@
+import { Platform } from 'react-native';
+import Purchases from 'react-native-purchases';
 import { MealRecord } from '../types/nutrition';
 import { useAppStore } from './storage';
 import pricingConfig from '../config/pricing.json';
 
 const GCLOUD_FUNCTION_URL = 'https://us-central1-calsnap-ai-app.cloudfunctions.net/analyzeMeal';
 const CALSNAP_APP_SECRET = 'calsnap_sec_9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e';
+
+async function getClientAppUserId(): Promise<string> {
+  const state = useAppStore.getState();
+  if (Platform.OS === 'ios' || Platform.OS === 'android') {
+    try {
+      const rcId = await Purchases.getAppUserID();
+      if (rcId && typeof rcId === 'string' && rcId.trim().length > 0) {
+        return rcId.trim();
+      }
+    } catch {
+      // In simulator, web, or offline fallback to profile id
+    }
+  }
+  return state.profile.email || state.profile.id || 'calsnap-guest-user';
+}
 
 export interface AnalyzeMealParams {
   imageBase64: string;
@@ -37,7 +54,8 @@ export async function analyzeMealImage(params: AnalyzeMealParams): Promise<Omit<
 
   // 2. Production Cloud Backend Function (Calls GCloud Function proxying Gemini 2.0 Flash)
   try {
-    const authToken = params.userAuthToken || 'calsnap-guest-token-v1';
+    const appUserId = await getClientAppUserId();
+    const authToken = params.userAuthToken || `calsnap-token-${appUserId}`;
 
     const response = await fetch(GCLOUD_FUNCTION_URL, {
       method: 'POST',
@@ -45,14 +63,22 @@ export async function analyzeMealImage(params: AnalyzeMealParams): Promise<Omit<
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${authToken}`,
         'X-CalSnap-App-Secret': CALSNAP_APP_SECRET,
+        'X-App-User-Id': appUserId,
+        'X-Is-Pro': (!isFreeTier).toString(),
       },
       body: JSON.stringify({
         image_base64: params.imageBase64,
         voice_transcript: params.voiceTranscript,
         cultural_preset: params.culturalPreset || 'Standard',
         cooking_style: params.cookingStyle || 'light',
+        user_id: appUserId,
+        is_pro: !isFreeTier,
       }),
     });
+
+    if (response.status === 429) {
+      throw new Error('QUOTA_EXCEEDED');
+    }
 
     if (response.ok) {
       const json = await response.json();
@@ -88,7 +114,10 @@ export async function analyzeMealImage(params: AnalyzeMealParams): Promise<Omit<
         };
       }
     }
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.message === 'QUOTA_EXCEEDED') {
+      throw err;
+    }
     console.warn('Backend API offline or unreachable. Falling back to local smart simulation.', err);
   }
 

@@ -75,9 +75,11 @@ export default function TodayDashboardScreen() {
 
   const handleConfirmDeleteMeal = (mealId: string, dishName: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const dateLabel = getDateLabel(selectedDateOffset);
+    const dayDesc = dateLabel === 'Today' ? "today's" : dateLabel === 'Yesterday' ? "yesterday's" : `${dateLabel}'s`;
     Alert.alert(
       'Delete Meal?',
-      `Are you sure you want to remove "${dishName}" from today's journal?`,
+      `Are you sure you want to remove "${dishName}" from ${dayDesc} journal?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -113,7 +115,9 @@ export default function TodayDashboardScreen() {
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>{getDynamicGreeting()}</Text>
-          <Text style={styles.headerTitle}>Today's Nutrition</Text>
+          <Text style={styles.headerTitle}>
+            {selectedDateOffset === 0 ? "Today's Nutrition" : `${getDateLabel(selectedDateOffset)}'s Nutrition`}
+          </Text>
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -315,7 +319,11 @@ export default function TodayDashboardScreen() {
               </View>
               <Text style={styles.quickCardTitle}>Scale Weight</Text>
               <Text style={styles.quickCardVal} numberOfLines={1}>
-                {profile.current_weight_kg ? `${profile.current_weight_kg} kg` : 'Log Weight'}
+                {profile.current_weight_kg
+                  ? goals.weight_unit === 'kg'
+                    ? `${profile.current_weight_kg} kg`
+                    : `${Math.round(profile.current_weight_kg * 2.20462 * 10) / 10} lbs`
+                  : 'Log Weight'}
               </Text>
             </TouchableOpacity>
 
@@ -405,12 +413,15 @@ export default function TodayDashboardScreen() {
       {/* Today's Meals Timeline */}
       <View style={styles.timelineSection}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <Text style={styles.sectionTitle}>Today's Meals ({todayMeals.length})</Text>
+          <Text style={styles.sectionTitle}>
+            {selectedDateOffset === 0 ? "Today's Meals" : `${getDateLabel(selectedDateOffset)}'s Meals`} ({todayMeals.length})
+          </Text>
           {todayMeals.length > 0 && (
             <TouchableOpacity
               onPress={() => {
+                const dateName = selectedDateOffset === 0 ? "Today's" : `${getDateLabel(selectedDateOffset)}'s`;
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                Alert.alert('Clear Today\'s Meals?', 'Are you sure you want to clear all logged meals for today?', [
+                Alert.alert(`Clear ${dateName} Meals?`, `Are you sure you want to clear all logged meals for ${dateName.toLowerCase()}?`, [
                   { text: 'Cancel', style: 'cancel' },
                   {
                     text: 'Clear All',
@@ -424,7 +435,9 @@ export default function TodayDashboardScreen() {
               }}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Text style={{ fontSize: 12, fontWeight: '700', color: '#EF4444' }}>Clear Today</Text>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#EF4444' }}>
+                {selectedDateOffset === 0 ? 'Clear Today' : `Clear ${getDateLabel(selectedDateOffset)}`}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -533,11 +546,10 @@ export default function TodayDashboardScreen() {
                             <Text style={styles.mealCals}>{meal.total_calories} kcal</Text>
                             <TouchableOpacity
                               onPress={() => {
-                                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                                deleteMeal(meal.id);
+                                handleConfirmDeleteMeal(meal.id, meal.dish_name);
                               }}
                               activeOpacity={0.6}
-                              hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                               style={styles.trashBtn}
                             >
                               <Trash2 size={18} color="#EF4444" />
@@ -546,10 +558,10 @@ export default function TodayDashboardScreen() {
                         </View>
 
                         <View style={styles.mealMacroBar}>
-                          <Text style={styles.macroTag}>P: {Number(meal.total_protein_g).toFixed(2)}g</Text>
-                          <Text style={styles.macroTag}>C: {Number(meal.total_carbs_g).toFixed(2)}g</Text>
-                          <Text style={styles.macroTag}>F: {Number(meal.total_fat_g).toFixed(2)}g</Text>
-                          {meal.estimated_oil_g > 0 && <Text style={styles.oilTag}>🫒 {meal.estimated_oil_g}g oil</Text>}
+                          <Text style={styles.macroTag}>P: {Math.round(Number(meal.total_protein_g) || 0)}g</Text>
+                          <Text style={styles.macroTag}>C: {Math.round(Number(meal.total_carbs_g) || 0)}g</Text>
+                          <Text style={styles.macroTag}>F: {Math.round(Number(meal.total_fat_g) || 0)}g</Text>
+                          {meal.estimated_oil_g > 0 && <Text style={styles.oilTag}>🫒 {Math.round(meal.estimated_oil_g)}g oil</Text>}
                         </View>
                       </TouchableOpacity>
 

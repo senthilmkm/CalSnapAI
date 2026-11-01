@@ -17,6 +17,40 @@ function safeParseJSON(rawText) {
   }
 }
 
+// In-Memory Quota & Rate-Limiting Store (keyed by userId:YYYY-MM-DD)
+const userDailyQuotaMap = new Map();
+
+function getUTCDayKey() {
+  const now = new Date();
+  return now.toISOString().split("T")[0];
+}
+
+function checkAndIncrementQuota(userId, isPro) {
+  if (isPro) return true; // Unlimited scans for Pro subscribers
+
+  const todayKey = getUTCDayKey();
+  const quotaKey = `${userId}:${todayKey}`;
+  const currentCount = userDailyQuotaMap.get(quotaKey) || 0;
+  const FREE_DAILY_LIMIT = parseInt(process.env.FREE_DAILY_SNAP_LIMIT || "1", 10);
+
+  if (currentCount >= FREE_DAILY_LIMIT) {
+    return false; // Quota exceeded
+  }
+
+  userDailyQuotaMap.set(quotaKey, currentCount + 1);
+
+  // Periodic cleanup if map exceeds 25,000 entries
+  if (userDailyQuotaMap.size > 25000) {
+    for (const [key] of userDailyQuotaMap.entries()) {
+      if (!key.endsWith(todayKey)) {
+        userDailyQuotaMap.delete(key);
+      }
+    }
+  }
+
+  return true;
+}
+
 /**
  * Google Cloud Function: analyzeMeal
  * 
@@ -28,7 +62,7 @@ exports.analyzeMeal = async (req, res) => {
   // CORS Headers
   res.set("Access-Control-Allow-Origin", "*");
   res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-CalSnap-App-Secret");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-CalSnap-App-Secret, X-App-User-Id, X-Is-Pro");
 
   if (req.method === "OPTIONS") {
     return res.status(204).send("");
@@ -50,10 +84,24 @@ exports.analyzeMeal = async (req, res) => {
       return res.status(403).json({ error: "Forbidden: Invalid App Signature" });
     }
 
-    // 2. Validate Auth Token
+    // 2. Validate Auth Token & Extract User Identity
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ error: "Unauthorized: Missing Bearer Token" });
+    }
+
+    const clientUserId = (req.headers["x-app-user-id"] || req.body.user_id || "guest-anonymous").trim();
+    const isPro = req.headers["x-is-pro"] === "true" || req.body.is_pro === true;
+
+    // 3. Server-Side Daily Free Scan Quota Enforcement
+    const quotaAllowed = checkAndIncrementQuota(clientUserId, isPro);
+    if (!quotaAllowed) {
+      console.warn(`[Quota Enforced] User ${clientUserId} reached daily free scan limit.`);
+      return res.status(429).json({
+        error: "QUOTA_EXCEEDED",
+        message: "Daily free scan limit reached. Please upgrade to CalSnap AI Pro for unlimited scans.",
+        server_date: getUTCDayKey(),
+      });
     }
 
     const { image_base64, voice_transcript, cultural_preset } = req.body;
@@ -61,7 +109,7 @@ exports.analyzeMeal = async (req, res) => {
       return res.status(400).json({ error: "Bad Request: Missing or invalid image_base64" });
     }
 
-    // 2. Payload size cap check (Max 10MB)
+    // 4. Payload size cap check (Max 10MB)
     if (image_base64.length > 10 * 1024 * 1024) {
       return res.status(413).json({ error: "Payload Too Large: Image exceeds 10MB limit" });
     }

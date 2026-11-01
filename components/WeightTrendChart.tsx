@@ -42,7 +42,7 @@ export function WeightTrendChart() {
 
   const handleOpenAddModal = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setInputWeight(stats.current ? stats.current.toString() : '165.0');
+    setInputWeight(stats.current ? displayVal(stats.current) : (unit === 'kg' ? '70.0' : '154.0'));
     setInputNote('');
     setModalVisible(true);
   };

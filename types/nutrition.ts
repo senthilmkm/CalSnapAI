@@ -75,6 +75,7 @@ export interface UserProfile {
   email?: string;
   is_guest: boolean;
   is_pro_subscriber: boolean;
+  subscription_tier?: 'annual' | 'monthly' | 'free';
   streak_days: number;
   streak_freeze_count: number;
   last_logged_date?: string;

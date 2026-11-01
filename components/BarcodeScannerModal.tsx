@@ -36,6 +36,7 @@ export function BarcodeScannerModal({ visible, onClose, onMealLogged }: BarcodeS
   const [paywallVisible, setPaywallVisible] = useState<boolean>(false);
 
   const addMeal = useAppStore((state) => state.addMeal);
+  const incrementDailyScan = useAppStore((state) => state.incrementDailyScan);
   const profile = useAppStore((state) => state.profile);
   const getTodayMeals = useAppStore((state) => state.getTodayMeals);
 
@@ -106,6 +107,7 @@ export function BarcodeScannerModal({ visible, onClose, onMealLogged }: BarcodeS
     };
 
     const newMeal = addMeal(mealData);
+    incrementDailyScan();
     if (onMealLogged) {
       onMealLogged(newMeal);
     }
