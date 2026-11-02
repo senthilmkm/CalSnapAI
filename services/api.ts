@@ -176,21 +176,21 @@ export async function analyzeMealImage(params: AnalyzeMealParams): Promise<Omit<
       tip: 'High lean protein with complex carbs! Keeps your focus sharp all afternoon.',
     },
     {
-      keywords: ['kebab', 'pita', 'mediterranean'],
-      dish: 'Mediterranean Protein Bowl & Pita',
+      keywords: ['dal', 'chawal', 'rice', 'egg', 'bhurji', 'curry', 'indian'],
+      dish: 'Dal Chawal with Egg Bhurji',
       items: [
-        { id: '1', name: 'Grilled Lamb Kebab', weight_g: 140, calories: 310, protein_g: 28, carbs_g: 2, fat_g: 21 },
-        { id: '2', name: 'Hummus & Olive Oil', weight_g: 60, calories: 150, protein_g: 4, carbs_g: 9, fat_g: 11 },
-        { id: '3', name: 'Whole Wheat Pita', weight_g: 50, calories: 130, protein_g: 5, carbs_g: 25, fat_g: 1 },
+        { id: '1', name: 'Steamed Rice (~150g)', weight_g: 150, calories: 205, protein_g: 4.2, carbs_g: 45.0, fat_g: 0.5 },
+        { id: '2', name: 'Homestyle Dal (~120g)', weight_g: 120, calories: 135, protein_g: 7.5, carbs_g: 18.0, fat_g: 3.5 },
+        { id: '3', name: 'Egg Bhurji / Scrambled (2 Eggs, ~100g)', weight_g: 100, calories: 155, protein_g: 13.0, carbs_g: 2.0, fat_g: 11.0 },
       ],
-      oil: 12,
-      cals: 598,
-      p: 37,
-      c: 36,
-      f: 33,
-      glucose: 'MEDIUM' as const,
-      crash: 'LOW' as const,
-      tip: 'Rich in healthy Mediterranean fats. Pair with extra greens for fiber.',
+      oil: 5,
+      cals: 540,
+      p: 24.7,
+      c: 65.0,
+      f: 20.0,
+      glucose: 'LOW' as const,
+      crash: 'VERY_LOW' as const,
+      tip: 'Balanced complete meal with high dietary fiber and 24g of complete protein!',
     },
   ];
 
@@ -327,15 +327,23 @@ export async function analyzeWithGeminiVision(
    - CATEGORY C: Packaged Foods, Yogurt, Protein Bars, Snacks -> MUST set estimated_oil_g to 0.
    - CATEGORY D: Cooked Dishes, Curries, Stir-fries, Pan-seared, Fried -> Calculate hidden oil mass in grams.
 
-3. FRUIT & VEGETABLE RIPENESS & MATURITY:
+3. STANDARD ADULT DINING PLATE CALIBRATION & COMPOSITE MEAL REALISM:
+   - When food is served on an adult dining plate (approx 9-10 inches) or standard bowl, calibrate portions against standard adult meal servings, NEVER small appetizer/tasting portions:
+     * COOKED GRAINS & STAPLES (White/Brown Rice, Basmati, Pasta, Noodles, Quinoa): A typical adult serving covering 1/3 to 1/2 of a dinner plate is 150g to 200g (approx 200-260 kcal, 45-55g carbs). NEVER estimate a full plate-base of rice/grains as under 130g (~38g carbs) unless explicitly a child/side portion.
+     * CURRIES, LENTILS & GRAVIES (Dal, Sambar, Curry, Chili, Stew): A normal adult serving is 120g to 180g (approx 120-180 kcal, 15-22g carbs, 6-9g protein).
+     * EGGS & SCRAMBLES (Egg Bhurji, Scrambled, Fried): 2 whole eggs baseline is ~100g (approx 140-160 kcal, 12-14g protein, 10-12g fat) plus 5-10g cooking oil (~45-90 kcal).
+     * BREADS & FLATBREADS (Roti, Chapati, Naan, Tortilla): Standard medium Roti is ~40g (100-120 kcal, 20-25g carbs); Naan is ~120g (300-350 kcal, 50-60g carbs).
+   - COMPOSITE DISH DECONSTRUCTION: For mixed plates with multiple items (e.g. "Dal Chawal with Egg Bhurji", "Rice with Chicken & Broccoli"), you MUST separate and list each distinct component in "items" with its realistic mass so carbohydrates, protein, and fat reflect the entire meal accurately (typically 450 - 650 kcal for an adult mixed plate).
+
+4. FRUIT & VEGETABLE RIPENESS & MATURITY:
    - Inspect skin pigmentation, browning/freckling, and ripeness stage (e.g., green vs yellow vs spotted banana).
    - Adjust sucrose/fructose ratio, net carbohydrates, and glycemic impact based on ripeness.
 
-4. CULTURAL CUISINE CONTEXT:
+5. CULTURAL CUISINE CONTEXT:
    - Regional Preference: "${culturalPreset || 'Standard'}".
    - Voice Note / User Context: "${voiceTranscript || 'None'}".
 
-5. METABOLIC FORECASTING:
+6. METABOLIC FORECASTING:
    - Assess glucose_impact_score ('LOW' | 'MEDIUM' | 'HIGH').
    - Assess energy_crash_risk ('VERY_LOW' | 'LOW' | 'MEDIUM' | 'HIGH').
 

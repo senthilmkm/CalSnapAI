@@ -8,28 +8,67 @@ interface PortionSliderProps {
   onPressLock?: () => void;
 }
 
-export const PortionSlider: React.FC<PortionSliderProps> = ({ multiplier, onChangeMultiplier, isPro = true, onPressLock }) => {
+export const PortionSlider: React.FC<PortionSliderProps> = ({
+  multiplier,
+  onChangeMultiplier,
+  isPro = true,
+  onPressLock,
+}) => {
   const portions = [
-    { label: '50%', val: 0.5 },
-    { label: '75%', val: 0.75 },
-    { label: '100% (Full)', val: 1.0 },
-    { label: '125%', val: 1.25 },
-    { label: '150%', val: 1.5 },
+    { label: '½ Plate', sub: '50%', val: 0.5 },
+    { label: '¾ Plate', sub: '75%', val: 0.75 },
+    { label: 'Whole Plate', sub: 'AI Default', val: 1.0 },
+    { label: '+Extra Scoop', sub: '125%', val: 1.25 },
+    { label: 'Had Seconds', sub: '150%', val: 1.5 },
   ];
+
+  const getMultiplierLabel = (val: number) => {
+    if (val === 1.0) return 'Whole Plate (1.0x)';
+    if (val === 0.5) return '½ Plate (0.5x)';
+    if (val === 0.75) return '¾ Plate (0.75x)';
+    if (val === 1.25) return '+Extra Scoop (1.25x)';
+    if (val === 1.5) return 'Had Seconds (1.5x)';
+    return `${Math.round(val * 100)}% of plate`;
+  };
+
+  const getHelperText = (val: number) => {
+    if (val === 1.0) {
+      return 'Standard adult plate detected by AI. Change only if you ate less or had seconds.';
+    }
+    if (val < 1.0) {
+      return `Portion reduced (${Math.round(val * 100)}% calories applied).`;
+    }
+    return `Portion increased (+${Math.round((val - 1.0) * 100)}% calories for extra serving).`;
+  };
 
   return (
     <View style={styles.container}>
+      {/* Header Row */}
       <View style={styles.headerRow}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Text style={styles.title}>🍽️ Portion Scale</Text>
           {!isPro && <Text style={styles.lockBadge}>🔒 PRO</Text>}
         </View>
-        <Text style={styles.badge}>{Math.round(multiplier * 100)}% of plate</Text>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {multiplier !== 1.0 && (
+            <TouchableOpacity
+              onPress={() => onChangeMultiplier(1.0)}
+              style={styles.resetBtn}
+              activeOpacity={0.7}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Text style={styles.resetBtnText}>↩ Reset</Text>
+            </TouchableOpacity>
+          )}
+          <Text style={styles.badge}>{getMultiplierLabel(multiplier)}</Text>
+        </View>
       </View>
 
+      {/* Button Row */}
       <View style={styles.buttonRow}>
         {portions.map((p) => {
-          const isSelected = multiplier === p.val;
+          const isSelected = Math.abs(multiplier - p.val) < 0.05;
           return (
             <TouchableOpacity
               key={p.val}
@@ -43,11 +82,23 @@ export const PortionSlider: React.FC<PortionSliderProps> = ({ multiplier, onChan
               }}
               activeOpacity={0.8}
             >
-              <Text style={[styles.optionLabel, isSelected && styles.selectedLabel]}>{p.label}</Text>
+              <Text
+                style={[styles.optionLabel, isSelected && styles.selectedLabel]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
+                {p.label}
+              </Text>
+              <Text style={[styles.optionSub, isSelected && styles.selectedSub]}>
+                {p.sub}
+              </Text>
             </TouchableOpacity>
           );
         })}
       </View>
+
+      {/* Live Reassuring Helper Subtext */}
+      <Text style={styles.helperText}>{getHelperText(multiplier)}</Text>
     </View>
   );
 };
@@ -81,6 +132,19 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 6,
   },
+  resetBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  resetBtnText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#475569',
+  },
   badge: {
     fontSize: 12,
     fontWeight: '700',
@@ -97,10 +161,12 @@ const styles = StyleSheet.create({
   },
   optionBtn: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 2,
     backgroundColor: '#FFFFFF',
     borderRadius: 10,
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#CBD5E1',
   },
@@ -110,11 +176,29 @@ const styles = StyleSheet.create({
   },
   optionLabel: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#475569',
+    fontWeight: '700',
+    color: '#334155',
+    textAlign: 'center',
   },
   selectedLabel: {
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontWeight: '800',
+  },
+  optionSub: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  selectedSub: {
+    color: '#E0E7FF',
+  },
+  helperText: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '500',
+    marginTop: 10,
+    lineHeight: 15,
   },
 });
+

@@ -562,6 +562,68 @@ assert.strictEqual(formatDisplayTargetWeight(150, 'lbs'), '150 lbs');
 assert.strictEqual(formatDisplayTargetWeight(150, 'kg'), '68 kg');
 console.log('✅ PASSED 7.4: Weight unit conversion (lbs <-> kg) and display formatting verified.');
 
+console.log('\n--- SECTION 8: Adult Composite Meal & Human Portion Scale ---');
+// 8.1: Adult Composite Plate Math (Dal Chawal with Egg Bhurji)
+const dalChawalBhurjiItems = [
+  { id: '1', name: 'Steamed Rice (~150g)', weight_g: 150, calories: 205, protein_g: 4.2, carbs_g: 45.0, fat_g: 0.5 },
+  { id: '2', name: 'Homestyle Dal (~120g)', weight_g: 120, calories: 135, protein_g: 7.5, carbs_g: 18.0, fat_g: 3.5 },
+  { id: '3', name: 'Egg Bhurji / Scrambled (2 Eggs, ~100g)', weight_g: 100, calories: 155, protein_g: 13.0, carbs_g: 2.0, fat_g: 11.0 },
+];
+const compositeOilG = 5;
+const baseCals = dalChawalBhurjiItems.reduce((acc, it) => acc + it.calories, 0); // 495
+const baseP = dalChawalBhurjiItems.reduce((acc, it) => acc + it.protein_g, 0);   // 24.7
+const baseC = dalChawalBhurjiItems.reduce((acc, it) => acc + it.carbs_g, 0);     // 65.0
+const baseF = dalChawalBhurjiItems.reduce((acc, it) => acc + it.fat_g, 0) + compositeOilG; // 20.0
+const totalCalculatedCals = baseCals + compositeOilG * 9; // 495 + 45 = 540
+
+assert.strictEqual(totalCalculatedCals, 540);
+assert.strictEqual(Number(baseP.toFixed(1)), 24.7);
+assert.strictEqual(Number(baseC.toFixed(1)), 65.0);
+assert.strictEqual(Number(baseF.toFixed(1)), 20.0);
+// Verify Atwater 4-4-9 macro consistency: (24.7*4) + (65.0*4) + (20.0*9) = 98.8 + 260 + 180 = 538.8 kcal ~ 540 kcal
+const atwaterSum = baseP * 4 + baseC * 4 + baseF * 9;
+assert.ok(Math.abs(atwaterSum - totalCalculatedCals) < 5);
+console.log('✅ PASSED 8.1: Adult composite meal (Dal Chawal + Egg Bhurji) macro math & Atwater consistency verified.');
+
+// 8.2: Human Portion Scale Multipliers (0.5x Half Plate, 1.0x Whole Plate, 1.5x Had Seconds)
+const loggedCompositeMeal = storage.addMeal({
+  dish_name: 'Dal Chawal with Egg Bhurji',
+  meal_type: 'Lunch',
+  items: dalChawalBhurjiItems,
+  estimated_oil_g: compositeOilG,
+  portion_multiplier: 1.0,
+  total_calories: totalCalculatedCals,
+  total_protein_g: baseP,
+  total_carbs_g: baseC,
+  total_fat_g: baseF,
+  glucose_impact_score: 'LOW',
+  energy_crash_risk: 'VERY_LOW',
+  ai_tip: 'Complete meal test.',
+});
+
+// Test 1: User selects '½ Plate' (0.5x)
+storage.updateMealSliders(loggedCompositeMeal.id, 0.5, compositeOilG);
+let updatedMealComp = storage.meals.find((m) => m.id === loggedCompositeMeal.id);
+// Base cals: 495 * 0.5 + 45 = 247.5 + 45 = 292.5 -> 293 kcal
+assert.strictEqual(updatedMealComp.total_calories, 293);
+assert.strictEqual(updatedMealComp.total_carbs_g, 33); // 65 * 0.5 = 32.5 -> 33g
+assert.strictEqual(updatedMealComp.portion_multiplier, 0.5);
+
+// Test 2: User taps '↩ Reset' to 1.0x (Whole Plate)
+storage.updateMealSliders(loggedCompositeMeal.id, 1.0, compositeOilG);
+updatedMealComp = storage.meals.find((m) => m.id === loggedCompositeMeal.id);
+assert.strictEqual(updatedMealComp.total_calories, 540);
+assert.strictEqual(updatedMealComp.portion_multiplier, 1.0);
+
+// Test 3: User selects 'Had Seconds' (1.5x)
+storage.updateMealSliders(loggedCompositeMeal.id, 1.5, compositeOilG);
+updatedMealComp = storage.meals.find((m) => m.id === loggedCompositeMeal.id);
+// Base cals: 495 * 1.5 + 45 = 742.5 + 45 = 787.5 -> 788 kcal
+assert.strictEqual(updatedMealComp.total_calories, 788);
+assert.strictEqual(updatedMealComp.portion_multiplier, 1.5);
+console.log('✅ PASSED 8.2: Human portion scale multipliers (½ Plate, Whole Plate, Had Seconds) and 1-tap reset verified.');
+
 console.log('========================================================================');
 console.log('🎉 ALL REGRESSION TESTS PASSED CLEANLY (100% PASS RATE)!');
 console.log('========================================================================');
+
