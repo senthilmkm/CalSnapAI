@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, Dimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { FileText, Download, TrendingUp, Award, Flame, Zap, ChartPie } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../../services/storage';
@@ -176,7 +177,8 @@ export default function InsightsScreen() {
   const projectedWeeklyFatLossKg = Math.max(0, Math.round((projectedWeeklyDeficit / 7700) * 100) / 100);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
       {/* Header */}
       <Text style={styles.screenTitle}>Insights & Trends</Text>
       <Text style={styles.screenSubtitle}>Your nutrition trends at a glance, plus weight progress and streak.</Text>
@@ -420,12 +422,13 @@ export default function InsightsScreen() {
 
       <PaywallModal visible={paywallVisible} onClose={() => setPaywallVisible(false)} />
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
-  contentContainer: { padding: 20, paddingTop: 60, paddingBottom: 100 },
+  contentContainer: { padding: 20, paddingTop: 12, paddingBottom: 100 },
   screenTitle: { fontSize: 26, fontWeight: '900', color: '#0F172A' },
   screenSubtitle: {
     fontSize: 13,

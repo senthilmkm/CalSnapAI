@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet, Alert, TextInput, Modal, Platform, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { User, Bell, Trash2, Sparkles, Smartphone, Target, Calculator, Info, Globe, Clock, ShieldAlert, X, Check } from 'lucide-react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Haptics from 'expo-haptics';
@@ -268,7 +269,8 @@ export default function SettingsScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
       <Text style={styles.screenTitle}>Settings</Text>
       <Text style={styles.screenSubtitle}>Manage notifications, account security, and history retention.</Text>
 
@@ -666,6 +668,7 @@ export default function SettingsScreen() {
         </View>
       </Modal>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -676,7 +679,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 20,
-    paddingTop: 60,
+    paddingTop: 12,
     paddingBottom: 100,
   },
   screenTitle: {

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import pricingConfig from '../../config/pricing.json';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Flame, Plus, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Calendar, Zap, ShieldCheck, Trash2, Sparkles, Scale, Clock, Timer, X, Target } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../../services/storage';
 import { MacroRing } from '../../components/MacroRing';
-import { WaterTrackerCard } from '../../components/WaterTrackerCard';
 import { PortionSlider } from '../../components/PortionSlider';
 import { OilSlider } from '../../components/OilSlider';
 import { PaywallModal } from '../../components/PaywallModal';
@@ -140,7 +140,8 @@ export default function TodayDashboardScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+    <SafeAreaView edges={['top']} style={styles.safeContainer}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
       {/* Header Bar */}
       <View style={styles.header}>
         <View>
@@ -486,9 +487,6 @@ export default function TodayDashboardScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Water Tracker Component */}
-          <WaterTrackerCard />
-
           {/* Glucose & Energy Crash Forecast */}
           <TouchableOpacity
             style={styles.glucoseCard}
@@ -731,17 +729,22 @@ export default function TodayDashboardScreen() {
         onClose={() => setOnboardingModalVisible(false)}
       />
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeContainer: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
   container: {
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
   contentContainer: {
     padding: 20,
-    paddingTop: 60,
+    paddingTop: 12,
     paddingBottom: 100,
   },
   header: {

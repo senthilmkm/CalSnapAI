@@ -15,7 +15,8 @@ import {
   Platform,
 } from 'react-native';
 import { Camera, Image as ImageIcon, Mic, Zap, Sparkles, AlertCircle, XCircle, HelpCircle, Info, Barcode, Check } from 'lucide-react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../../services/storage';
@@ -31,6 +32,7 @@ import pricingConfig from '../../config/pricing.json';
 const FREE_DAILY_SNAP_LIMIT = pricingConfig.free_tier?.daily_snap_limit ?? 1;
 
 export default function SnapScreen() {
+  const router = useRouter();
   const [analyzing, setAnalyzing] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [recordingVoice, setRecordingVoice] = useState(false);
@@ -380,8 +382,9 @@ export default function SnapScreen() {
   });
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
+    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
+      <View style={styles.container}>
+        {/* Header */}
       <View style={styles.header}>
         <Text style={styles.screenTitle}>Snap & Log</Text>
         <TouchableOpacity style={styles.quotaBadge} onPress={() => isFreeTier && setPaywallVisible(true)}>
@@ -531,6 +534,26 @@ export default function SnapScreen() {
         {/* Live Interactive Results Container */}
         {activeMeal && (
           <View style={styles.resultContainer}>
+            {/* Reassuring Instant Logged Confirmation Banner */}
+            <View style={styles.savedBannerRow}>
+              <View style={styles.savedBadgeLeft}>
+                <Check size={14} color="#059669" strokeWidth={3} />
+                <Text style={styles.savedBadgeText}>
+                  Saved to Today's {activeMeal.meal_type || 'Journal'}!
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.viewJournalBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.navigate('/(tabs)');
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.viewJournalBtnText}>View in Today ↩</Text>
+              </TouchableOpacity>
+            </View>
+
             {/* Dish Header Row with Flex Wrapping & Calorie Pill Badge */}
             <View style={styles.dishHeaderRow}>
               <Text style={styles.dishTitle} numberOfLines={2} ellipsizeMode="tail">
@@ -682,6 +705,7 @@ export default function SnapScreen() {
         </KeyboardAvoidingView>
       </Modal>
     </View>
+    </SafeAreaView>
   );
 }
 
@@ -689,7 +713,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8FAFC',
-    paddingTop: 60,
+    paddingTop: 8,
   },
   header: {
     flexDirection: 'row',
@@ -1135,6 +1159,42 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+  },
+  savedBannerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    marginBottom: 12,
+  },
+  savedBadgeLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  savedBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#065F46',
+  },
+  viewJournalBtn: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#6EE7B7',
+  },
+  viewJournalBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#047857',
   },
   dishHeaderRow: {
     flexDirection: 'row',
