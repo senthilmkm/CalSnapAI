@@ -37,6 +37,10 @@ export default function TodayDashboardScreen() {
   const dismissStreakFreezeBanner = useAppStore((state) => state.dismissStreakFreezeBanner);
   const dismissWelcomeCard = useAppStore((state) => state.dismissWelcomeCard);
   const toggleFastState = useAppStore((state) => state.toggleFastState);
+  const getTodayWater = useAppStore((state) => state.getTodayWater);
+  const addWater = useAppStore((state) => state.addWater);
+
+  const todayWater = getTodayWater();
 
   const getTargetDateStr = (offset: number) => {
     const d = new Date();
@@ -341,6 +345,49 @@ export default function TodayDashboardScreen() {
             <Text style={styles.macroVal}>{Math.round(totals.fat)}/{goals.daily_fat_g}g</Text>
           </View>
         </View>
+      </View>
+
+      {/* Compact Daily Habit Bar: Water (Left) + Fasting (Right) */}
+      <View style={styles.compactHabitsRow}>
+        {/* Water Mini Card */}
+        <View style={styles.compactHabitCard}>
+          <View style={styles.compactHabitTop}>
+            <Text style={styles.compactHabitTitle}>💧 Water Tracker</Text>
+            <TouchableOpacity
+              style={styles.waterQuickAddMini}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                addWater(250, selectedDateStr);
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.waterQuickAddMiniText}>+250ml</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.compactHabitValue}>
+            {todayWater.current} <Text style={styles.compactHabitUnit}>/ {todayWater.target} ml</Text>
+          </Text>
+        </View>
+
+        {/* Fasting Mini Card */}
+        <TouchableOpacity
+          style={[styles.compactHabitCard, fastingInfo.isFasting && { borderColor: '#A7F3D0', backgroundColor: '#ECFDF5' }]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            toggleFastState();
+          }}
+          activeOpacity={0.8}
+        >
+          <View style={styles.compactHabitTop}>
+            <Text style={[styles.compactHabitTitle, fastingInfo.isFasting && { color: '#047857' }]}>
+              ⏳ Fasting ({profile.fasting_protocol || '16:8'})
+            </Text>
+            <View style={[styles.fastingDot, fastingInfo.isFasting && { backgroundColor: '#10B981' }]} />
+          </View>
+          <Text style={[styles.compactHabitValue, fastingInfo.isFasting && { color: '#047857' }]}>
+            {fastingInfo.isFasting ? `${fastingInfo.hours}h ${fastingInfo.minutes}m Active` : 'Tap to Start'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* 1-Tap Staples & Quick Log Bar */}
@@ -806,6 +853,65 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '900',
     color: '#0F172A',
+  },
+  compactHabitsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  compactHabitCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+    justifyContent: 'space-between',
+  },
+  compactHabitTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  compactHabitTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#475569',
+  },
+  waterQuickAddMini: {
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  waterQuickAddMiniText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#4F46E5',
+  },
+  fastingDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#CBD5E1',
+  },
+  compactHabitValue: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  compactHabitUnit: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
   },
   freezeSavedBanner: {
     flexDirection: 'row',

@@ -510,37 +510,6 @@ export default function SnapScreen() {
           {!!voiceNote && <XCircle size={18} color="#047857" />}
         </TouchableOpacity>
 
-        {/* Cooking Style Oil Selector Pills */}
-        <View style={styles.cookingStyleRow}>
-          <TouchableOpacity
-            style={[styles.stylePill, cookingStyle === 'raw' && styles.stylePillActiveRaw]}
-            onPress={() => setCookingStyle('raw')}
-            activeOpacity={0.85}
-          >
-            <Text style={[styles.stylePillText, cookingStyle === 'raw' && styles.stylePillTextActive]}>
-              🥗 Raw/Boiled (0g)
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.stylePill, cookingStyle === 'light' && styles.stylePillActiveLight]}
-            onPress={() => setCookingStyle('light')}
-            activeOpacity={0.85}
-          >
-            <Text style={[styles.stylePillText, cookingStyle === 'light' && styles.stylePillTextActive]}>
-              🍳 Light Oil (+5g)
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.stylePill, cookingStyle === 'heavy' && styles.stylePillActiveHeavy]}
-            onPress={() => setCookingStyle('heavy')}
-            activeOpacity={0.85}
-          >
-            <Text style={[styles.stylePillText, cookingStyle === 'heavy' && styles.stylePillTextActive]}>
-              🧈 Butter / Ghee (+15g)
-            </Text>
-          </TouchableOpacity>
-        </View>
-
         {/* Action Controls Row */}
         <View style={styles.actionRow}>
           <TouchableOpacity style={styles.galleryBtn} onPress={handlePickImage} activeOpacity={0.85}>
@@ -571,6 +540,49 @@ export default function SnapScreen() {
                 <Text style={styles.dishCalsText}>{activeMeal.total_calories}</Text>
                 <Text style={styles.dishCalsUnit}>kcal</Text>
               </View>
+            </View>
+
+            {/* Quick Cooking Style Adjuster (Post-Scan) */}
+            <View style={[styles.cookingStyleRow, { marginTop: 10, marginBottom: 8 }]}>
+              <TouchableOpacity
+                style={[styles.stylePill, cookingStyle === 'raw' && styles.stylePillActiveRaw]}
+                onPress={() => {
+                  setCookingStyle('raw');
+                  updateMealSliders(activeMeal.id, activeMeal.portion_multiplier, 0);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.stylePillText, cookingStyle === 'raw' && styles.stylePillTextActive]}>
+                  🥗 Raw / Fresh (0g)
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.stylePill, cookingStyle === 'light' && styles.stylePillActiveLight]}
+                onPress={() => {
+                  setCookingStyle('light');
+                  updateMealSliders(activeMeal.id, activeMeal.portion_multiplier, 5);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.stylePillText, cookingStyle === 'light' && styles.stylePillTextActive]}>
+                  🍳 Light Cooked (+5g)
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.stylePill, cookingStyle === 'heavy' && styles.stylePillActiveHeavy]}
+                onPress={() => {
+                  setCookingStyle('heavy');
+                  updateMealSliders(activeMeal.id, activeMeal.portion_multiplier, 15);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.stylePillText, cookingStyle === 'heavy' && styles.stylePillTextActive]}>
+                  🧈 Homestyle (+15g)
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Interactive Portion & Oil Sliders */}

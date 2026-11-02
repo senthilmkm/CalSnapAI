@@ -181,34 +181,62 @@ export default function InsightsScreen() {
       <Text style={styles.screenTitle}>Insights & Trends</Text>
       <Text style={styles.screenSubtitle}>Your nutrition trends at a glance, plus weight progress and streak.</Text>
 
-      {/* Weekly Net Deficit & Fat Loss Projection Card */}
-      <View style={styles.deficitCard}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+      {/* Unified Weekly Transformation Outlook Card */}
+      <View style={styles.outlookCard}>
+        <View style={styles.outlookHeader}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Award size={18} color="#4F46E5" />
-            <Text style={styles.deficitCardTitle}>7-Day Net Calorie Deficit</Text>
+            <Text style={styles.outlookTitle}>Weekly Transformation Outlook</Text>
           </View>
-          {loggedDaysCount === 0 ? (
-            <View style={[styles.deficitPill, styles.deficitPillNeutral]}>
-              <Text style={[styles.deficitPillText, { color: '#64748B' }]}>No Data</Text>
-            </View>
-          ) : (
-            <View style={[styles.deficitPill, netDeficitSoFar >= 0 ? styles.deficitPillPos : styles.deficitPillNeg]}>
-              <Text style={[styles.deficitPillText, netDeficitSoFar >= 0 ? styles.deficitPillTextPos : styles.deficitPillTextNeg]}>
-                {netDeficitSoFar >= 0 ? `${netDeficitSoFar} kcal Deficit` : `${Math.abs(netDeficitSoFar)} kcal Surplus`}
-              </Text>
-            </View>
-          )}
+          <View style={[styles.outlookBadge, netDeficitSoFar >= 0 && loggedDaysCount > 0 ? styles.outlookBadgeGood : styles.outlookBadgeNeutral]}>
+            <Text style={[styles.outlookBadgeText, netDeficitSoFar >= 0 && loggedDaysCount > 0 ? styles.outlookBadgeTextGood : styles.outlookBadgeTextNeutral]}>
+              {loggedDaysCount === 0 ? 'Need Data' : netDeficitSoFar >= 0 ? 'On Track 🔥' : 'Above Target ⚠️'}
+            </Text>
+          </View>
         </View>
 
-        <Text style={styles.deficitDesc}>
+        {/* 2-Metric Health Row: Calorie Deficit/Fat Loss + Diet Quality */}
+        <View style={styles.outlookMetricsRow}>
+          {/* Metric 1: Deficit & Fat Loss */}
+          <View style={styles.outlookMetricCol}>
+            <Text style={styles.outlookMetricLabel}>Weekly Energy Pace</Text>
+            <Text style={styles.outlookMetricVal}>
+              {loggedDaysCount === 0
+                ? '--'
+                : netDeficitSoFar >= 0
+                ? `-${projectedWeeklyDeficit} kcal`
+                : `+${Math.abs(projectedWeeklyDeficit)} kcal`}
+            </Text>
+            <Text style={styles.outlookMetricSub}>
+              {loggedDaysCount === 0
+                ? '0 days logged'
+                : netDeficitSoFar >= 0
+                ? `~${projectedWeeklyFatLossKg} kg fat loss/wk`
+                : 'Surplus pace'}
+            </Text>
+          </View>
+
+          <View style={styles.outlookDivider} />
+
+          {/* Metric 2: Clinical Quality Score */}
+          <View style={styles.outlookMetricCol}>
+            <Text style={styles.outlookMetricLabel}>Diet Quality Score</Text>
+            <Text style={[styles.outlookMetricVal, { color: qualityScore >= 70 ? '#059669' : '#D97706' }]}>
+              {rangeMeals.length > 0 ? `${qualityScore}/100` : '--/100'}
+            </Text>
+            <Text style={[styles.outlookMetricSub, { fontWeight: '800', color: qualityScore >= 70 ? '#059669' : '#D97706' }]}>
+              {rangeMeals.length > 0 ? qualityBadge : 'No Data'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Narrative Summary (Explains how the two connect!) */}
+        <Text style={styles.outlookNarrative}>
           {loggedDaysCount === 0
-            ? '⚪ Log your meals for at least 1 day to calculate your active calorie deficit and fat loss projection.'
-            : loggedDaysCount < 3
-            ? `📊 Active: ${loggedDaysCount} of 7 days logged (${netDeficitSoFar >= 0 ? `+${netDeficitSoFar} kcal deficit` : `${Math.abs(netDeficitSoFar)} kcal surplus`} so far). Log 3+ days for full weekly precision!`
+            ? 'Log meals for at least 1 day to generate your personalized clinical deficit and quality score.'
             : netDeficitSoFar >= 0
-            ? `🔥 Across ${loggedDaysCount} logged days, your weekly pace is a net ${projectedWeeklyDeficit} kcal deficit. Projected fat loss: ~${projectedWeeklyFatLossKg} kg/week.`
-            : `⚠️ Across ${loggedDaysCount} logged days, you are ${Math.abs(netDeficitSoFar)} kcal above target. Adjust portion sliders to return to a deficit!`}
+            ? `Your ${chartRange}D diet quality is rated ${qualityBadge} (${qualityScore}/100). Across ${loggedDaysCount} logged days, your net energy deficit puts you on pace for ~${projectedWeeklyFatLossKg} kg fat loss this week!`
+            : `Your energy intake is currently above target (+${Math.abs(netDeficitSoFar)} kcal) across ${loggedDaysCount} logged days. Consider adjusting portion sliders on your next meal to restore your deficit.`}
         </Text>
 
         {realBankedCalories > 0 && (
@@ -368,19 +396,6 @@ export default function InsightsScreen() {
         )}
       </View>
 
-      {/* Nutrition Quality Score */}
-      <View style={styles.card}>
-        <View style={styles.cardHeaderRow}>
-          <Award size={20} color="#F59E0B" />
-          <Text style={styles.cardTitle}>Nutrition Quality Score ({chartRange}D)</Text>
-        </View>
-        <View style={styles.scoreRow}>
-          <Text style={styles.scoreNumber}>{rangeMeals.length > 0 ? `${qualityScore}/100` : '--/100'}</Text>
-          <Text style={styles.scoreBadge}>{qualityBadge}</Text>
-        </View>
-        <Text style={styles.scoreDesc}>{qualityDesc}</Text>
-      </View>
-
       {/* Export Card */}
       <View style={styles.exportCard}>
         <View style={styles.exportHeader}>
@@ -417,23 +432,98 @@ const styles = StyleSheet.create({
     color: '#64748B',
     marginBottom: 16,
   },
-  deficitCard: {
+  outlookCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 16,
+    padding: 18,
     marginBottom: 16,
     borderWidth: 1.5,
-    borderColor: '#CBD5E1',
+    borderColor: '#E2E8F0',
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
   },
-  deficitCardTitle: {
+  outlookHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  outlookTitle: {
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '900',
     color: '#0F172A',
+  },
+  outlookBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1.5,
+  },
+  outlookBadgeGood: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
+  },
+  outlookBadgeNeutral: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#CBD5E1',
+  },
+  outlookBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  outlookBadgeTextGood: {
+    color: '#047857',
+  },
+  outlookBadgeTextNeutral: {
+    color: '#64748B',
+  },
+  outlookMetricsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 12,
+  },
+  outlookMetricCol: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  outlookMetricLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#64748B',
+    marginBottom: 2,
+    textTransform: 'uppercase',
+  },
+  outlookMetricVal: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  outlookMetricSub: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 2,
+    fontWeight: '700',
+  },
+  outlookDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: '#CBD5E1',
+    marginHorizontal: 8,
+  },
+  outlookNarrative: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+    lineHeight: 18,
   },
   deficitPill: {
     paddingHorizontal: 10,
