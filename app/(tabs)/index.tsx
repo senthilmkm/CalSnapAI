@@ -37,10 +37,12 @@ export default function TodayDashboardScreen() {
   const dismissStreakFreezeBanner = useAppStore((state) => state.dismissStreakFreezeBanner);
   const dismissWelcomeCard = useAppStore((state) => state.dismissWelcomeCard);
   const toggleFastState = useAppStore((state) => state.toggleFastState);
+  const setFastingProtocol = useAppStore((state) => state.setFastingProtocol);
+  const water_logs = useAppStore((state) => state.water_logs);
+  const water_target_ml = useAppStore((state) => state.water_target_ml);
   const getTodayWater = useAppStore((state) => state.getTodayWater);
   const addWater = useAppStore((state) => state.addWater);
-
-  const todayWater = getTodayWater();
+  const resetTodayWater = useAppStore((state) => state.resetTodayWater);
 
   const getTargetDateStr = (offset: number) => {
     const d = new Date();
@@ -67,6 +69,7 @@ export default function TodayDashboardScreen() {
   const fastingInfo = getFastingInfo();
 
   const selectedDateStr = getTargetDateStr(selectedDateOffset);
+  const todayWater = getTodayWater(selectedDateStr);
   const todayMeals = getMealsForDate(selectedDateStr);
   const totals = getTotalsForDate(selectedDateStr);
   const bankedCalories = getWeeklyBankedCalories();
@@ -136,6 +139,71 @@ export default function TodayDashboardScreen() {
     Alert.alert(
       '🧊 Streak Freeze Protection',
       `You have ${profile.streak_freeze_count ?? 1} Streak Freeze active. If you ever miss logging meals for a day, your streak will be protected automatically!`
+    );
+  };
+
+  const handleWaterOptions = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert(
+      '💧 Water Tracker',
+      `Logged: ${todayWater.current} ml / Goal: ${todayWater.target} ml`,
+      [
+        {
+          text: '+250 ml (1 Glass)',
+          onPress: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            addWater(250, selectedDateStr);
+          },
+        },
+        {
+          text: '+500 ml (1 Bottle)',
+          onPress: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            addWater(500, selectedDateStr);
+          },
+        },
+        {
+          text: 'Reset Water to 0 ml',
+          style: 'destructive',
+          onPress: () => {
+            resetTodayWater();
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const handleSelectFastingProtocol = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert(
+      '⏳ Fasting Protocol',
+      `Current schedule: ${profile.fasting_protocol || '16:8'}`,
+      [
+        {
+          text: '16:8 (Standard - 16h fast, 8h eat)',
+          onPress: () => {
+            setFastingProtocol('16:8');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          },
+        },
+        {
+          text: '14:10 (Gentle - 14h fast, 10h eat)',
+          onPress: () => {
+            setFastingProtocol('14:10');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          },
+        },
+        {
+          text: '18:6 (Advanced - 18h fast, 6h eat)',
+          onPress: () => {
+            setFastingProtocol('18:6');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
     );
   };
 
@@ -351,24 +419,25 @@ export default function TodayDashboardScreen() {
       {/* Compact Daily Habit Bar: Water (Left) + Fasting (Right) */}
       <View style={styles.compactHabitsRow}>
         {/* Water Mini Card */}
-        <View style={styles.compactHabitCard}>
+        <TouchableOpacity
+          style={styles.compactHabitCard}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            addWater(250, selectedDateStr);
+          }}
+          onLongPress={handleWaterOptions}
+          activeOpacity={0.7}
+        >
           <View style={styles.compactHabitTop}>
             <Text style={styles.compactHabitTitle}>💧 Water Tracker</Text>
-            <TouchableOpacity
-              style={styles.waterQuickAddMini}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                addWater(250, selectedDateStr);
-              }}
-              activeOpacity={0.8}
-            >
+            <View style={styles.waterQuickAddMini}>
               <Text style={styles.waterQuickAddMiniText}>+250ml</Text>
-            </TouchableOpacity>
+            </View>
           </View>
           <Text style={styles.compactHabitValue}>
             {todayWater.current} <Text style={styles.compactHabitUnit}>/ {todayWater.target} ml</Text>
           </Text>
-        </View>
+        </TouchableOpacity>
 
         {/* Fasting Mini Card */}
         <TouchableOpacity
@@ -377,7 +446,8 @@ export default function TodayDashboardScreen() {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             toggleFastState();
           }}
-          activeOpacity={0.8}
+          onLongPress={handleSelectFastingProtocol}
+          activeOpacity={0.7}
         >
           <View style={styles.compactHabitTop}>
             <Text style={[styles.compactHabitTitle, fastingInfo.isFasting && { color: '#047857' }]}>
@@ -451,7 +521,8 @@ export default function TodayDashboardScreen() {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 toggleFastState();
               }}
-              activeOpacity={0.8}
+              onLongPress={handleSelectFastingProtocol}
+              activeOpacity={0.7}
             >
               <View style={styles.cardHeaderIconRow}>
                 <View style={[styles.iconCircle, { backgroundColor: fastingInfo.isFasting ? '#D1FAE5' : '#FEF3C7' }]}>

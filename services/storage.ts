@@ -38,7 +38,7 @@ interface AppState {
   addWater: (amount_ml: number, dateStr?: string) => void;
   setWaterTarget: (target_ml: number) => void;
   resetTodayWater: () => void;
-  getTodayWater: () => { current: number; target: number; percentage: number };
+  getTodayWater: (dateStr?: string) => { current: number; target: number; percentage: number };
 
   // Weight Tracker & History
   weight_entries: WeightEntry[];
@@ -314,11 +314,11 @@ export const useAppStore = create<AppState>()(
           },
         }));
       },
-      getTodayWater: () => {
-        const todayStr = getTodayKey();
+      getTodayWater: (dateStr?: string) => {
+        const targetDate = dateStr || getTodayKey();
         const utcDate = new Date().toISOString().split('T')[0];
         const logs = get().water_logs || {};
-        const current = Math.max(0, logs[todayStr] ?? logs[utcDate] ?? 0);
+        const current = Math.max(0, logs[targetDate] ?? (targetDate === getTodayKey() ? logs[utcDate] : 0) ?? 0);
         const target = Math.max(1, get().water_target_ml || 2500);
         const percentage = Math.round((current / target) * 100);
         return { current, target, percentage };

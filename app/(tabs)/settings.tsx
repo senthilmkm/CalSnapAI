@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet, Alert, TextInput, Modal, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { User, Bell, Trash2, Sparkles, Smartphone, Target, Calculator, Info, Globe, Clock, ShieldAlert, X, Check } from 'lucide-react-native';
+import { User, Bell, Trash2, Sparkles, Smartphone, Target, Calculator, Info, Globe, Clock, ShieldAlert, X, Check, Scale } from 'lucide-react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Haptics from 'expo-haptics';
 import Purchases from 'react-native-purchases';
@@ -37,6 +37,8 @@ export default function SettingsScreen() {
   const signOut = useAppStore((state) => state.signOut);
   const deleteAccount = useAppStore((state) => state.deleteAccount);
   const setAIConsent = useAppStore((state) => state.setAIConsent);
+  const setWeightUnit = useAppStore((state) => state.setWeightUnit);
+  const setFastingProtocol = useAppStore((state) => state.setFastingProtocol);
 
   const notifications = useAppStore((state) => state.notifications);
   const updateNotifs = useAppStore((state) => state.updateNotificationSettings);
@@ -429,6 +431,63 @@ export default function SettingsScreen() {
                 <Text style={[styles.retentionText, isSelected && styles.retentionTextSel]}>
                   {preset.label}
                 </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* Preferred Units & Intermittent Fasting Schedule */}
+      <View style={styles.sectionCard}>
+        <View style={styles.sectionHeaderRow}>
+          <Scale size={20} color="#059669" />
+          <Text style={styles.sectionTitle}>Units & Fasting Schedule</Text>
+        </View>
+
+        {/* Preferred Weight Unit */}
+        <Text style={styles.retentionLabel}>Preferred Scale Unit:</Text>
+        <View style={styles.retentionPillRow}>
+          {[
+            { label: 'Pounds (lbs)', val: 'lbs' },
+            { label: 'Kilograms (kg)', val: 'kg' },
+          ].map((u) => {
+            const isSel = (goals.weight_unit || 'lbs') === u.val;
+            return (
+              <TouchableOpacity
+                key={u.val}
+                style={[styles.retentionBtn, isSel && styles.retentionBtnSel]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setWeightUnit(u.val as 'lbs' | 'kg');
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.retentionText, isSel && styles.retentionTextSel]}>{u.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Intermittent Fasting Schedule */}
+        <Text style={[styles.retentionLabel, { marginTop: 14 }]}>Intermittent Fasting Schedule:</Text>
+        <View style={styles.retentionPillRow}>
+          {[
+            { label: '16:8 Standard', val: '16:8' },
+            { label: '14:10 Gentle', val: '14:10' },
+            { label: '18:6 Advanced', val: '18:6' },
+          ].map((p) => {
+            const isSel = (profile.fasting_protocol || '16:8') === p.val;
+            return (
+              <TouchableOpacity
+                key={p.val}
+                style={[styles.retentionBtn, isSel && styles.retentionBtnSel]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setFastingProtocol(p.val as any);
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.retentionText, isSel && styles.retentionTextSel]}>{p.label}</Text>
               </TouchableOpacity>
             );
           })}
