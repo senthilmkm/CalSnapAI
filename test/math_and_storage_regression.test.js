@@ -105,6 +105,7 @@ class MockCalSnapStorage {
       id,
       timestamp,
       dish_name: mealData.dish_name || 'Logged Meal',
+      source: mealData.source,
       image_uri: mealData.image_uri,
       meal_type: mealData.meal_type || 'Lunch',
       items: mealData.items || [],
@@ -622,6 +623,62 @@ updatedMealComp = storage.meals.find((m) => m.id === loggedCompositeMeal.id);
 assert.strictEqual(updatedMealComp.total_calories, 788);
 assert.strictEqual(updatedMealComp.portion_multiplier, 1.5);
 console.log('✅ PASSED 8.2: Human portion scale multipliers (½ Plate, Whole Plate, Had Seconds) and 1-tap reset verified.');
+
+console.log('\n--- SECTION 9: Barcode Scanned Foods & Serving Multipliers ---');
+// Test 9.1: Log a barcode product (e.g., Quest Bar: 200 kcal, 21g P, 22g C, 7g F, 0g oil)
+const loggedBarcodeMeal = storage.addMeal({
+  dish_name: 'Quest Nutrition Chocolate Chip Cookie Dough Bar',
+  meal_type: 'Snack',
+  source: 'barcode',
+  items: [
+    {
+      id: 'item-barcode-1',
+      name: 'Quest Nutrition Chocolate Chip Cookie Dough Bar',
+      weight_g: 60,
+      calories: 200,
+      protein_g: 21,
+      carbs_g: 22,
+      fat_g: 7,
+    },
+  ],
+  estimated_oil_g: 0,
+  portion_multiplier: 1.0,
+  total_calories: 200,
+  total_protein_g: 21,
+  total_carbs_g: 22,
+  total_fat_g: 7,
+  glucose_impact_score: 'LOW',
+  energy_crash_risk: 'VERY_LOW',
+  ai_tip: 'Verified product from OpenFoodFacts database (Quest Nutrition).',
+});
+
+assert.strictEqual(loggedBarcodeMeal.source, 'barcode');
+assert.strictEqual(loggedBarcodeMeal.estimated_oil_g, 0);
+assert.strictEqual(loggedBarcodeMeal.total_calories, 200);
+console.log('✅ PASSED 9.1: Barcode meal logged with exact nutrition facts and 0g oil.');
+
+// Test 9.2: User scales to 2 Servings (2.0x)
+storage.updateMealSliders(loggedBarcodeMeal.id, 2.0, 0);
+let updatedBarcodeMeal = storage.meals.find((m) => m.id === loggedBarcodeMeal.id);
+assert.strictEqual(updatedBarcodeMeal.total_calories, 400);
+assert.strictEqual(updatedBarcodeMeal.total_protein_g, 42);
+assert.strictEqual(updatedBarcodeMeal.total_carbs_g, 44);
+assert.strictEqual(updatedBarcodeMeal.total_fat_g, 14);
+assert.strictEqual(updatedBarcodeMeal.portion_multiplier, 2.0);
+
+// Test 9.3: User scales down to ½ Serving (0.5x)
+storage.updateMealSliders(loggedBarcodeMeal.id, 0.5, 0);
+updatedBarcodeMeal = storage.meals.find((m) => m.id === loggedBarcodeMeal.id);
+assert.strictEqual(updatedBarcodeMeal.total_calories, 100);
+assert.strictEqual(updatedBarcodeMeal.total_protein_g, 11); // 10.5 rounded
+assert.strictEqual(updatedBarcodeMeal.total_carbs_g, 11);
+assert.strictEqual(updatedBarcodeMeal.total_fat_g, 4); // 3.5 rounded
+assert.strictEqual(updatedBarcodeMeal.portion_multiplier, 0.5);
+
+// Test 9.4: Base items remain uncorrupted for future scaling
+assert.strictEqual(updatedBarcodeMeal.items[0].calories, 200);
+assert.strictEqual(updatedBarcodeMeal.items[0].protein_g, 21);
+console.log('✅ PASSED 9.2: Servings multiplier (0.5x, 2.0x) scales all macros accurately with zero data corruption.');
 
 console.log('========================================================================');
 console.log('🎉 ALL REGRESSION TESTS PASSED CLEANLY (100% PASS RATE)!');

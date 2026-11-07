@@ -22,10 +22,13 @@ export interface FoodItem {
   fat_g: number;
 }
 
+export type MealSource = 'camera' | 'barcode' | 'quick_add' | 'manual';
+
 export interface MealRecord {
   id: string;
   timestamp: string; // ISO String
   dish_name: string;
+  source?: MealSource;
   image_uri?: string;
   voice_transcript?: string;
   meal_type: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';

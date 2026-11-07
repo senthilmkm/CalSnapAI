@@ -18,6 +18,7 @@ import { Camera, Image as ImageIcon, Mic, Zap, Sparkles, AlertCircle, XCircle, H
 import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../../services/storage';
 import { analyzeMealImage, parseNaturalLanguageMeal } from '../../services/api';
@@ -128,6 +129,7 @@ export default function SnapScreen() {
   const meals = useAppStore((state) => state.meals);
 
   const activeMeal = meals.find((m) => m.id === currentMealId);
+  const isBarcodeMeal = !!activeMeal && (activeMeal.source === 'barcode' || (!activeMeal.source && (activeMeal.ai_tip?.includes('OpenFoodFacts') || activeMeal.ai_tip?.includes('Smart Fallback'))));
   const todaySnapsCount = getTodayScanCount();
   const isFreeTier = !profile.is_pro_subscriber;
   const snapsRemaining = Math.max(0, FREE_DAILY_SNAP_LIMIT - todaySnapsCount);
@@ -164,6 +166,22 @@ export default function SnapScreen() {
     return false;
   };
 
+  const optimizeImageForAI = async (uri: string): Promise<string> => {
+    try {
+      const manipResult = await manipulateAsync(
+        uri,
+        [{ resize: { width: 1024 } }],
+        { compress: 0.65, format: SaveFormat.JPEG, base64: true }
+      );
+      if (manipResult.base64) {
+        return manipResult.base64;
+      }
+    } catch (e) {
+      console.warn('Image optimization fallback:', e);
+    }
+    return '';
+  };
+
   const executeCameraLaunch = async () => {
     try {
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
@@ -176,13 +194,15 @@ export default function SnapScreen() {
 
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.7,
-        base64: true,
+        quality: 0.8,
+        base64: false,
       });
 
-      if (!result.canceled && result.assets[0].base64) {
-        setSelectedImage(result.assets[0].uri);
-        await processImageAnalysis(result.assets[0].base64, result.assets[0].uri);
+      if (!result.canceled && result.assets[0]?.uri) {
+        const photoUri = result.assets[0].uri;
+        setSelectedImage(photoUri);
+        const optimizedBase64 = await optimizeImageForAI(photoUri);
+        await processImageAnalysis(optimizedBase64 || result.assets[0].base64 || '', photoUri);
       }
     } catch (err) {
       // Fallback for iOS Simulator where physical camera is unavailable
@@ -205,13 +225,15 @@ export default function SnapScreen() {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.7,
-        base64: true,
+        quality: 0.8,
+        base64: false,
       });
 
-      if (!result.canceled && result.assets[0].base64) {
-        setSelectedImage(result.assets[0].uri);
-        await processImageAnalysis(result.assets[0].base64, result.assets[0].uri);
+      if (!result.canceled && result.assets[0]?.uri) {
+        const photoUri = result.assets[0].uri;
+        setSelectedImage(photoUri);
+        const optimizedBase64 = await optimizeImageForAI(photoUri);
+        await processImageAnalysis(optimizedBase64 || result.assets[0].base64 || '', photoUri);
       }
     } catch (err) {
       Alert.alert('Image Error', 'Failed to load photo.');
@@ -303,6 +325,7 @@ export default function SnapScreen() {
       const newMeal = addMeal({
         dish_name: result.dish_name,
         meal_type: result.meal_type || 'Lunch',
+        source: 'camera',
         items: result.items,
         estimated_oil_g: finalOilGrams,
         portion_multiplier: 1.0,
@@ -374,6 +397,14 @@ export default function SnapScreen() {
         { text: 'Cancel', style: 'cancel' },
       ]
     );
+  };
+
+  const handleSnapAnother = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedImage(null);
+    setCurrentMealId(null);
+    setVoiceNote('');
+    setCookingStyle('light');
   };
 
   const laserTranslateY = scanAnim.interpolate({
@@ -525,103 +556,107 @@ export default function SnapScreen() {
             <Text style={styles.barcodeBtnLabel}>Scan Barcode</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.proBtn} onPress={() => setPaywallVisible(true)} activeOpacity={0.85}>
-            <Zap size={18} color="#D97706" />
-            <Text style={styles.proBtnLabel}>Pro</Text>
-          </TouchableOpacity>
+          {isFreeTier && (
+            <TouchableOpacity style={styles.proBtn} onPress={() => setPaywallVisible(true)} activeOpacity={0.85}>
+              <Zap size={18} color="#D97706" />
+              <Text style={styles.proBtnLabel}>Pro</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Live Interactive Results Container */}
         {activeMeal && (
           <View style={styles.resultContainer}>
-            {/* Reassuring Instant Logged Confirmation Banner */}
-            <View style={styles.savedBannerRow}>
-              <View style={styles.savedBadgeLeft}>
-                <Check size={14} color="#059669" strokeWidth={3} />
-                <Text style={styles.savedBadgeText}>
-                  Saved to Today's {activeMeal.meal_type || 'Journal'}!
-                </Text>
-              </View>
-              <TouchableOpacity
-                style={styles.viewJournalBtn}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  router.navigate('/(tabs)');
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.viewJournalBtnText}>View in Today ↩</Text>
-              </TouchableOpacity>
-            </View>
-
             {/* Dish Header Row with Flex Wrapping & Calorie Pill Badge */}
             <View style={styles.dishHeaderRow}>
-              <Text style={styles.dishTitle} numberOfLines={2} ellipsizeMode="tail">
-                {activeMeal.dish_name}
-              </Text>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                {isBarcodeMeal && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 }}>
+                    <Barcode size={13} color="#4F46E5" />
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#4F46E5', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      Verified Barcode Scan
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.autoSavedBadge}>
+                  <Check size={11} color="#059669" strokeWidth={3} />
+                  <Text style={styles.autoSavedBadgeText}>
+                    Auto-Saved to {activeMeal.meal_type || 'Journal'}
+                  </Text>
+                </View>
+                <Text style={styles.dishTitle} numberOfLines={2} ellipsizeMode="tail">
+                  {activeMeal.dish_name}
+                </Text>
+              </View>
               <View style={styles.dishCalsBadge}>
                 <Text style={styles.dishCalsText}>{activeMeal.total_calories}</Text>
                 <Text style={styles.dishCalsUnit}>kcal</Text>
               </View>
             </View>
 
-            {/* Quick Cooking Style Adjuster (Post-Scan) */}
-            <View style={[styles.cookingStyleRow, { marginTop: 10, marginBottom: 8 }]}>
-              <TouchableOpacity
-                style={[styles.stylePill, cookingStyle === 'raw' && styles.stylePillActiveRaw]}
-                onPress={() => {
-                  setCookingStyle('raw');
-                  updateMealSliders(activeMeal.id, activeMeal.portion_multiplier, 0);
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }}
-                activeOpacity={0.85}
-              >
-                <Text style={[styles.stylePillText, cookingStyle === 'raw' && styles.stylePillTextActive]}>
-                  🥗 Raw / Fresh (0g)
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.stylePill, cookingStyle === 'light' && styles.stylePillActiveLight]}
-                onPress={() => {
-                  setCookingStyle('light');
-                  updateMealSliders(activeMeal.id, activeMeal.portion_multiplier, 5);
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }}
-                activeOpacity={0.85}
-              >
-                <Text style={[styles.stylePillText, cookingStyle === 'light' && styles.stylePillTextActive]}>
-                  🍳 Light Cooked (+5g)
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.stylePill, cookingStyle === 'heavy' && styles.stylePillActiveHeavy]}
-                onPress={() => {
-                  setCookingStyle('heavy');
-                  updateMealSliders(activeMeal.id, activeMeal.portion_multiplier, 15);
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }}
-                activeOpacity={0.85}
-              >
-                <Text style={[styles.stylePillText, cookingStyle === 'heavy' && styles.stylePillTextActive]}>
-                  🧈 Homestyle (+15g)
-                </Text>
-              </TouchableOpacity>
-            </View>
+            {/* Quick Cooking Style Adjuster (Only for AI Camera Plate Scans) */}
+            {!isBarcodeMeal && (
+              <View style={[styles.cookingStyleRow, { marginTop: 10, marginBottom: 8 }]}>
+                <TouchableOpacity
+                  style={[styles.stylePill, cookingStyle === 'raw' && styles.stylePillActiveRaw]}
+                  onPress={() => {
+                    setCookingStyle('raw');
+                    updateMealSliders(activeMeal.id, activeMeal.portion_multiplier, 0);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.stylePillText, cookingStyle === 'raw' && styles.stylePillTextActive]}>
+                    🥗 Raw / Fresh (0g)
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.stylePill, cookingStyle === 'light' && styles.stylePillActiveLight]}
+                  onPress={() => {
+                    setCookingStyle('light');
+                    updateMealSliders(activeMeal.id, activeMeal.portion_multiplier, 5);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.stylePillText, cookingStyle === 'light' && styles.stylePillTextActive]}>
+                    🍳 Light Cooked (+5g)
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.stylePill, cookingStyle === 'heavy' && styles.stylePillActiveHeavy]}
+                  onPress={() => {
+                    setCookingStyle('heavy');
+                    updateMealSliders(activeMeal.id, activeMeal.portion_multiplier, 15);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.stylePillText, cookingStyle === 'heavy' && styles.stylePillTextActive]}>
+                    🧈 Homestyle (+15g)
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
-            {/* Interactive Portion & Oil Sliders */}
+            {/* Interactive Portion / Servings Slider */}
             <PortionSlider
               multiplier={activeMeal.portion_multiplier}
+              mode={isBarcodeMeal ? 'servings' : 'plate'}
               isPro={profile.is_pro_subscriber}
               onPressLock={() => setPaywallVisible(true)}
               onChangeMultiplier={(val: number) => updateMealSliders(activeMeal.id, val, activeMeal.estimated_oil_g)}
             />
 
-            <OilSlider
-              currentOilGrams={activeMeal.estimated_oil_g}
-              isPro={profile.is_pro_subscriber}
-              onPressLock={() => setPaywallVisible(true)}
-              onChangeOil={(val: number) => updateMealSliders(activeMeal.id, activeMeal.portion_multiplier, val)}
-            />
+            {/* Oil Slider (Only for AI Camera Plate Scans) */}
+            {!isBarcodeMeal && (
+              <OilSlider
+                currentOilGrams={activeMeal.estimated_oil_g}
+                isPro={profile.is_pro_subscriber}
+                onPressLock={() => setPaywallVisible(true)}
+                onChangeOil={(val: number) => updateMealSliders(activeMeal.id, activeMeal.portion_multiplier, val)}
+              />
+            )}
 
             {/* AI Nutrition Tip */}
             {activeMeal.ai_tip && (
@@ -630,6 +665,28 @@ export default function SnapScreen() {
                 <Text style={styles.aiTipText}>{activeMeal.ai_tip}</Text>
               </View>
             )}
+
+            {/* Seamless Completion & Navigation Actions (100% Zero-Friction) */}
+            <View style={styles.cardActionsRow}>
+              <TouchableOpacity
+                style={styles.viewTodayBtn}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.navigate('/(tabs)');
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.viewTodayBtnText}>View Today's Totals →</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.snapAnotherBtn}
+                onPress={handleSnapAnother}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.snapAnotherBtnText}>+ Snap Another Food</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
       </ScrollView>
@@ -1160,41 +1217,57 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  savedBannerRow: {
+  autoSavedBadge: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
     backgroundColor: '#ECFDF5',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#A7F3D0',
-    marginBottom: 12,
+    marginBottom: 6,
   },
-  savedBadgeLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flex: 1,
-  },
-  savedBadgeText: {
-    fontSize: 12,
+  autoSavedBadgeText: {
+    fontSize: 11,
     fontWeight: '800',
     color: '#065F46',
   },
-  viewJournalBtn: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#6EE7B7',
+  cardActionsRow: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderColor: '#F1F5F9',
+    gap: 10,
   },
-  viewJournalBtnText: {
-    fontSize: 11,
+  viewTodayBtn: {
+    backgroundColor: '#4F46E5',
+    paddingVertical: 13,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#4F46E5',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  viewTodayBtnText: {
+    fontSize: 14,
     fontWeight: '800',
-    color: '#047857',
+    color: '#FFFFFF',
+  },
+  snapAnotherBtn: {
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  snapAnotherBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748B',
   },
   dishHeaderRow: {
     flexDirection: 'row',

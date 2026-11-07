@@ -36,6 +36,8 @@ export function MealDetailSheet({ meal, onClose }: Props) {
 
   const hasPhoto = meal.image_uri && meal.image_uri.length > 20 && meal.image_uri !== 'MOCK_IMAGE_DATA';
 
+  const isBarcode = meal.source === 'barcode' || (!meal.source && (meal.ai_tip?.includes('OpenFoodFacts') || meal.ai_tip?.includes('Smart Fallback')));
+
   return (
     <Modal animationType="slide" transparent={false} visible={!!meal} onRequestClose={onClose}>
       <SafeAreaView style={styles.container}>
@@ -90,7 +92,9 @@ export function MealDetailSheet({ meal, onClose }: Props) {
             <Flame size={28} color="#F97316" />
             <View style={{ marginLeft: 12 }}>
               <Text style={styles.calsNumber}>{meal.total_calories} kcal</Text>
-              <Text style={styles.calsLabel}>Total Energy · {(meal.portion_multiplier || 1).toFixed(1)}x portion</Text>
+              <Text style={styles.calsLabel}>
+                Total Energy · {(meal.portion_multiplier || 1).toFixed(1)}x {isBarcode ? 'servings' : 'portion'}
+              </Text>
             </View>
           </View>
 

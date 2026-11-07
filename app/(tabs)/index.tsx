@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import pricingConfig from '../../config/pricing.json';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Alert, AppState } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Flame, Plus, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Calendar, Zap, ShieldCheck, Trash2, Sparkles, Scale, Clock, Timer, X, Target } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
@@ -14,6 +14,7 @@ import { StaplesBar } from '../../components/StaplesBar';
 import { QuickAddModal } from '../../components/QuickAddModal';
 import { WeightLogModal } from '../../components/WeightLogModal';
 import { OnboardingModal } from '../../components/OnboardingModal';
+import { AnimatedHourglass } from '../../components/AnimatedHourglass';
 import { MealRecord } from '../../types/nutrition';
 
 export default function TodayDashboardScreen() {
@@ -53,17 +54,44 @@ export default function TodayDashboardScreen() {
     return `${year}-${month}-${day}`;
   };
 
+  // Live 1-Second Fasting Clock Ticker (Runs strictly when fasting is active)
+  const [ticker, setTicker] = useState(Date.now());
+
+  useEffect(() => {
+    if (!profile.is_fasting) return;
+    const interval = setInterval(() => {
+      setTicker(Date.now());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [profile.is_fasting]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        setTicker(Date.now());
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
   const getFastingInfo = () => {
     if (!profile.is_fasting || !profile.fast_start_timestamp) {
-      return { hours: 0, minutes: 0, targetHours: 16, percentage: 0, isFasting: false };
+      return { hours: 0, minutes: 0, seconds: 0, formattedTime: '00:00:00', targetHours: 16, percentage: 0, isFasting: false };
     }
     const elapsedMs = Math.max(0, Date.now() - new Date(profile.fast_start_timestamp).getTime());
-    const hoursFloat = elapsedMs / (1000 * 60 * 60);
+    const totalSeconds = Math.floor(elapsedMs / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const formattedTime = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+
     const targetHours = profile.fasting_protocol === '18:6' ? 18 : profile.fasting_protocol === '14:10' ? 14 : 16;
+    const hoursFloat = elapsedMs / (1000 * 60 * 60);
     const percentage = Math.min(100, Math.round((hoursFloat / targetHours) * 100));
-    const hours = Math.floor(hoursFloat);
-    const minutes = Math.floor((hoursFloat - hours) * 60);
-    return { hours, minutes, targetHours, percentage, isFasting: true };
+
+    return { hours, minutes, seconds, formattedTime, targetHours, percentage, isFasting: true };
   };
 
   const fastingInfo = getFastingInfo();
@@ -352,8 +380,8 @@ export default function TodayDashboardScreen() {
         </View>
       )}
 
-      {/* Pro Banner if Guest */}
-      {profile.is_guest && (
+      {/* Pro Banner if Free Tier */}
+      {!profile.is_pro_subscriber && (
         <TouchableOpacity style={styles.proBanner} onPress={() => setPaywallVisible(true)} activeOpacity={0.9}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Zap size={16} color="#4F46E5" />
@@ -450,13 +478,33 @@ export default function TodayDashboardScreen() {
           activeOpacity={0.7}
         >
           <View style={styles.compactHabitTop}>
-            <Text style={[styles.compactHabitTitle, fastingInfo.isFasting && { color: '#047857' }]}>
-              ⏳ Fasting ({profile.fasting_protocol || '16:8'})
-            </Text>
-            <View style={[styles.fastingDot, fastingInfo.isFasting && { backgroundColor: '#10B981' }]} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <AnimatedHourglass
+                isFasting={fastingInfo.isFasting}
+                size={13}
+                color={fastingInfo.isFasting ? '#047857' : '#64748B'}
+              />
+              <Text style={[styles.compactHabitTitle, fastingInfo.isFasting && { color: '#047857' }]}>
+                Fasting
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.fastingProtocolMini, fastingInfo.isFasting && styles.fastingProtocolMiniActive]}
+              onPress={handleSelectFastingProtocol}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.fastingProtocolMiniText, fastingInfo.isFasting && styles.fastingProtocolMiniTextActive]}>
+                {profile.fasting_protocol || '16:8'}
+              </Text>
+              <ChevronDown
+                size={10}
+                color={fastingInfo.isFasting ? '#065F46' : '#64748B'}
+              />
+            </TouchableOpacity>
           </View>
           <Text style={[styles.compactHabitValue, fastingInfo.isFasting && { color: '#047857' }]}>
-            {fastingInfo.isFasting ? `${fastingInfo.hours}h ${fastingInfo.minutes}m Active` : 'Tap to Start'}
+            {fastingInfo.isFasting ? `${fastingInfo.formattedTime} Active` : 'Tap to Start'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -475,11 +523,11 @@ export default function TodayDashboardScreen() {
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Zap size={16} color="#4F46E5" />
-          <Text style={styles.utilityAccordionTitle}>Health & Fasting Utilities</Text>
+          <Text style={styles.utilityAccordionTitle}>Health & Extra Utilities</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
           <Text style={{ fontSize: 11, fontWeight: '700', color: '#4F46E5' }}>
-            {showUtilities ? 'Hide' : 'Water, Weight, Fasting'}
+            {showUtilities ? 'Hide' : 'Weight, Quick Add, Glucose'}
           </Text>
           {showUtilities ? <ChevronUp size={16} color="#4F46E5" /> : <ChevronDown size={16} color="#4F46E5" />}
         </View>
@@ -488,7 +536,7 @@ export default function TodayDashboardScreen() {
       {showUtilities && (
         <View style={styles.utilityVaultCard}>
           <Text style={styles.utilityVaultHeader}>🛠️ HEALTH UTILITIES VAULT</Text>
-          {/* 3-Card Aesthetic Action Row: Weight, Fasting, Quick Add */}
+          {/* 2-Card Action Row: Scale Weight & 3s Quick Add */}
           <View style={styles.quickCardsRow}>
             {/* Card 1: Scale Weight Logger */}
             <TouchableOpacity
@@ -514,30 +562,7 @@ export default function TodayDashboardScreen() {
               </Text>
             </TouchableOpacity>
 
-            {/* Card 2: Intermittent Fasting Timer */}
-            <TouchableOpacity
-              style={[styles.quickCard, fastingInfo.isFasting && { borderColor: '#A7F3D0', backgroundColor: '#ECFDF5' }]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                toggleFastState();
-              }}
-              onLongPress={handleSelectFastingProtocol}
-              activeOpacity={0.7}
-            >
-              <View style={styles.cardHeaderIconRow}>
-                <View style={[styles.iconCircle, { backgroundColor: fastingInfo.isFasting ? '#D1FAE5' : '#FEF3C7' }]}>
-                  <Timer size={16} color={fastingInfo.isFasting ? '#059669' : '#D97706'} />
-                </View>
-              </View>
-              <Text style={[styles.quickCardTitle, fastingInfo.isFasting && { color: '#047857' }]}>
-                {fastingInfo.isFasting ? 'Fasting Active' : 'Fasting Timer'}
-              </Text>
-              <Text style={[styles.quickCardVal, fastingInfo.isFasting && { color: '#047857' }]} numberOfLines={1}>
-                {fastingInfo.isFasting ? `${fastingInfo.hours}h ${fastingInfo.minutes}m` : 'Start Fast'}
-              </Text>
-            </TouchableOpacity>
-
-            {/* Card 3: Emergency 3-Sec Quick Add */}
+            {/* Card 2: Emergency 3-Sec Quick Add */}
             <TouchableOpacity
               style={styles.quickCard}
               onPress={() => {
@@ -751,28 +776,34 @@ export default function TodayDashboardScreen() {
                       </TouchableOpacity>
 
                       {/* Expandable Recalibration Sliders */}
-                      {isExpanded && (
-                        <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderColor: '#E2E8F0' }}>
-                          <PortionSlider
-                            multiplier={meal.portion_multiplier || 1.0}
-                            isPro={profile.is_pro_subscriber}
-                            onPressLock={() => setPaywallVisible(true)}
-                            onChangeMultiplier={(mult) => {
-                              Haptics.selectionAsync();
-                              updateMealSliders(meal.id, mult, meal.estimated_oil_g || 0);
-                            }}
-                          />
-                          <OilSlider
-                            currentOilGrams={meal.estimated_oil_g || 0}
-                            isPro={profile.is_pro_subscriber}
-                            onPressLock={() => setPaywallVisible(true)}
-                            onChangeOil={(oil) => {
-                              Haptics.selectionAsync();
-                              updateMealSliders(meal.id, meal.portion_multiplier || 1.0, oil);
-                            }}
-                          />
-                        </View>
-                      )}
+                      {isExpanded && (() => {
+                        const isBarcodeMeal = meal.source === 'barcode' || (!meal.source && (meal.ai_tip?.includes('OpenFoodFacts') || meal.ai_tip?.includes('Smart Fallback')));
+                        return (
+                          <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderColor: '#E2E8F0' }}>
+                            <PortionSlider
+                              multiplier={meal.portion_multiplier || 1.0}
+                              mode={isBarcodeMeal ? 'servings' : 'plate'}
+                              isPro={profile.is_pro_subscriber}
+                              onPressLock={() => setPaywallVisible(true)}
+                              onChangeMultiplier={(mult) => {
+                                Haptics.selectionAsync();
+                                updateMealSliders(meal.id, mult, meal.estimated_oil_g || 0);
+                              }}
+                            />
+                            {!isBarcodeMeal && (
+                              <OilSlider
+                                currentOilGrams={meal.estimated_oil_g || 0}
+                                isPro={profile.is_pro_subscriber}
+                                onPressLock={() => setPaywallVisible(true)}
+                                onChangeOil={(oil) => {
+                                  Haptics.selectionAsync();
+                                  updateMealSliders(meal.id, meal.portion_multiplier || 1.0, oil);
+                                }}
+                              />
+                            )}
+                          </View>
+                        );
+                      })()}
                     </View>
                   );
                 })}
@@ -971,11 +1002,28 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#4F46E5',
   },
-  fastingDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: '#CBD5E1',
+  fastingProtocolMini: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+  },
+  fastingProtocolMiniActive: {
+    backgroundColor: '#DCFCE7',
+    borderColor: '#86EFAC',
+  },
+  fastingProtocolMiniText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#475569',
+  },
+  fastingProtocolMiniTextActive: {
+    color: '#065F46',
   },
   compactHabitValue: {
     fontSize: 14,

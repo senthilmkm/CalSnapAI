@@ -84,6 +84,7 @@ export async function analyzeMealImage(params: AnalyzeMealParams): Promise<Omit<
       const json = await response.json();
       if (json.success && json.data) {
         const items = json.data.items || [];
+        const hasItems = items.length > 0;
         const sumCals = items.reduce((acc: number, it: any) => acc + (Number(it.calories) || 0), 0);
         const sumProtein = items.reduce((acc: number, it: any) => acc + (Number(it.protein_g) || 0), 0);
         const sumCarbs = items.reduce((acc: number, it: any) => acc + (Number(it.carbs_g) || 0), 0);
@@ -91,11 +92,16 @@ export async function analyzeMealImage(params: AnalyzeMealParams): Promise<Omit<
 
         let oilGrams = Number(json.data.estimated_oil_g) || 0;
         if (params.cookingStyle === 'raw') oilGrams = 0;
-        if (params.cookingStyle === 'light') oilGrams = 5;
-        if (params.cookingStyle === 'heavy') oilGrams = 15;
+        else if (params.cookingStyle === 'heavy') oilGrams = Math.max(oilGrams, 15);
+        else if (params.cookingStyle === 'light' && oilGrams > 0) oilGrams = 5;
 
-        const totalCals = (sumCals > 0 ? sumCals : (Number(json.data.total_calories) || 250)) + (oilGrams * 9);
-        const totalFat = (sumFat > 0 ? Number(sumFat.toFixed(1)) : (Number(json.data.total_fat_g) || 10)) + oilGrams;
+        const baseCals = hasItems ? sumCals : (Number(json.data.total_calories) || 0);
+        const baseProtein = hasItems ? sumProtein : (Number(json.data.total_protein_g) || 0);
+        const baseCarbs = hasItems ? sumCarbs : (Number(json.data.total_carbs_g) || 0);
+        const baseFat = hasItems ? sumFat : (Number(json.data.total_fat_g) || 0);
+
+        const totalCals = baseCals + (oilGrams * 9);
+        const totalFat = baseFat + oilGrams;
 
         return {
           dish_name: json.data.dish_name || 'Identified Meal',
@@ -104,12 +110,12 @@ export async function analyzeMealImage(params: AnalyzeMealParams): Promise<Omit<
           estimated_oil_g: oilGrams,
           portion_multiplier: 1.0,
           total_calories: totalCals,
-          total_protein_g: sumProtein > 0 ? Number(sumProtein.toFixed(1)) : (Number(json.data.total_protein_g) || 15),
-          total_carbs_g: sumCarbs > 0 ? Number(sumCarbs.toFixed(1)) : (Number(json.data.total_carbs_g) || 30),
+          total_protein_g: Number(baseProtein.toFixed(1)),
+          total_carbs_g: Number(baseCarbs.toFixed(1)),
           total_fat_g: Number(totalFat.toFixed(1)),
           glucose_impact_score: json.data.glucose_impact_score || 'LOW',
           energy_crash_risk: json.data.energy_crash_risk || 'VERY_LOW',
-          ai_tip: json.data.ai_tip || 'Balanced nutrition plate!',
+          ai_tip: json.data.ai_tip || 'Balanced nutrition profile.',
           voice_transcript: params.voiceTranscript,
         };
       }
@@ -372,7 +378,7 @@ Return ONLY a valid, parseable JSON object with NO markdown formatting or text s
   "ai_tip": "One precise, highly actionable 1-sentence nutrition insight about this specific meal."
 }`;
 
-  const modelNames = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+  const modelNames = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-flash-latest'];
   const requestParts: any[] = [{ text: promptText }];
   if (cleanBase64 && cleanBase64.length > 100 && cleanBase64 !== 'MOCK_IMAGE_DATA') {
     requestParts.push({
@@ -449,15 +455,16 @@ Return ONLY a valid, parseable JSON object with NO markdown formatting or text s
   }
 
   const items = parsed.items || [];
+  const hasItems = items.length > 0;
   const sumCals = items.reduce((acc: number, it: any) => acc + (Number(it.calories) || 0), 0);
   const sumProtein = items.reduce((acc: number, it: any) => acc + (Number(it.protein_g) || 0), 0);
   const sumCarbs = items.reduce((acc: number, it: any) => acc + (Number(it.carbs_g) || 0), 0);
   const sumFat = items.reduce((acc: number, it: any) => acc + (Number(it.fat_g) || 0), 0);
 
-  const calcCals = sumCals > 0 ? sumCals : (Number(parsed.total_calories) || 250);
-  const calcProtein = sumProtein > 0 ? sumProtein : (Number(parsed.total_protein_g) || 15);
-  const calcCarbs = sumCarbs > 0 ? sumCarbs : (Number(parsed.total_carbs_g) || 30);
-  const calcFat = sumFat > 0 ? sumFat : (Number(parsed.total_fat_g) || 10);
+  const calcCals = hasItems ? sumCals : (Number(parsed.total_calories) || 0);
+  const calcProtein = hasItems ? sumProtein : (Number(parsed.total_protein_g) || 0);
+  const calcCarbs = hasItems ? sumCarbs : (Number(parsed.total_carbs_g) || 0);
+  const calcFat = hasItems ? sumFat : (Number(parsed.total_fat_g) || 0);
 
   return {
     dish_name: parsed.dish_name || 'Analyzed Meal',

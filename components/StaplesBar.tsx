@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -26,12 +26,15 @@ export function StaplesBar({ selectedDateStr }: StaplesBarProps) {
   const logStapleAsMeal = useAppStore((state) => state.logStapleAsMeal);
   const addStaple = useAppStore((state) => state.addStaple);
   const deleteStaple = useAppStore((state) => state.deleteStaple);
+  const deleteMeal = useAppStore((state) => state.deleteMeal);
   const profile = useAppStore((state) => state.profile);
   const getMealsForDate = useAppStore((state) => state.getMealsForDate);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [paywallVisible, setPaywallVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [recentLoggedMealId, setRecentLoggedMealId] = useState<string | null>(null);
+  const undoTimerRef = useRef<any>(null);
 
   // Form states for new custom staple
   const [icon, setIcon] = useState('☕');
@@ -44,12 +47,25 @@ export function StaplesBar({ selectedDateStr }: StaplesBarProps) {
 
   const handleTapStaple = (staple: StapleItem) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    logStapleAsMeal(staple, selectedDateStr);
+    const newMeal = logStapleAsMeal(staple, selectedDateStr);
+    setRecentLoggedMealId(newMeal.id);
 
     setToastMessage(`Added ${staple.icon} ${staple.name} (+${staple.calories} kcal)`);
-    setTimeout(() => {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    undoTimerRef.current = setTimeout(() => {
       setToastMessage(null);
-    }, 2500);
+      setRecentLoggedMealId(null);
+    }, 4000);
+  };
+
+  const handleUndoStaple = () => {
+    if (recentLoggedMealId) {
+      deleteMeal(recentLoggedMealId);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      setToastMessage(null);
+      setRecentLoggedMealId(null);
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    }
   };
 
   const handleLongPressStaple = (staple: StapleItem) => {
@@ -95,11 +111,18 @@ export function StaplesBar({ selectedDateStr }: StaplesBarProps) {
 
   return (
     <View style={styles.container}>
-      {/* Toast Notification Banner */}
+      {/* Toast Notification Banner with Instant Undo */}
       {toastMessage && (
         <View style={styles.toastBanner}>
-          <Zap size={16} color="#10B981" />
-          <Text style={styles.toastText}>{toastMessage}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+            <Zap size={15} color="#10B981" />
+            <Text style={styles.toastText} numberOfLines={1}>{toastMessage}</Text>
+          </View>
+          {recentLoggedMealId && (
+            <TouchableOpacity onPress={handleUndoStaple} style={styles.undoBtn} activeOpacity={0.75}>
+              <Text style={styles.undoBtnText}>Undo</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -245,11 +268,12 @@ const styles = StyleSheet.create({
   toastBanner: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: '#ECFDF5',
     borderWidth: 1,
     borderColor: '#A7F3D0',
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 9,
     borderRadius: 14,
     marginBottom: 12,
     gap: 8,
@@ -258,6 +282,19 @@ const styles = StyleSheet.create({
     color: '#065F46',
     fontWeight: '700',
     fontSize: 13,
+  },
+  undoBtn: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#6EE7B7',
+  },
+  undoBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#047857',
   },
   headerRow: {
     flexDirection: 'row',

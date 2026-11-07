@@ -1,4 +1,4 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { GoogleGenerativeAI, SchemaType } = require("@google/generative-ai");
 const { jsonrepair } = require("jsonrepair");
 
 /**
@@ -159,19 +159,19 @@ Return ONLY valid JSON matching this exact structure:
   "confidence": 0.98,
   "items": [
     {
-      "name": "Item Name (e.g., Grilled Chicken Breast)",
-      "weight_g": 150,
-      "calories": 220,
-      "protein_g": 32.0,
-      "carbs_g": 0.0,
-      "fat_g": 5.0
+      "name": "Item Name (e.g., Fresh Yellow Banana or Grilled Chicken Breast)",
+      "weight_g": 118,
+      "calories": 105,
+      "protein_g": 1.3,
+      "carbs_g": 27.0,
+      "fat_g": 0.3
     }
   ],
-  "estimated_oil_g": 5,
-  "total_calories": 265,
-  "total_protein_g": 32.0,
-  "total_carbs_g": 0.0,
-  "total_fat_g": 10.0,
+  "estimated_oil_g": 0,
+  "total_calories": 105,
+  "total_protein_g": 1.3,
+  "total_carbs_g": 27.0,
+  "total_fat_g": 0.3,
   "glucose_impact_score": "LOW",
   "energy_crash_risk": "VERY_LOW",
   "ai_tip": "One precise, highly actionable clinical nutrition insight about this specific meal."
@@ -185,13 +185,52 @@ Return ONLY valid JSON matching this exact structure:
       },
     };
 
+const MEAL_ANALYSIS_SCHEMA = {
+  type: SchemaType.OBJECT,
+  properties: {
+    dish_name: { type: SchemaType.STRING },
+    items: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          name: { type: SchemaType.STRING },
+          weight_g: { type: SchemaType.NUMBER },
+          calories: { type: SchemaType.NUMBER },
+          protein_g: { type: SchemaType.NUMBER },
+          carbs_g: { type: SchemaType.NUMBER },
+          fat_g: { type: SchemaType.NUMBER },
+        },
+        required: ["name", "weight_g", "calories", "protein_g", "carbs_g", "fat_g"],
+      },
+    },
+    estimated_oil_g: { type: SchemaType.NUMBER },
+    total_calories: { type: SchemaType.NUMBER },
+    total_protein_g: { type: SchemaType.NUMBER },
+    total_carbs_g: { type: SchemaType.NUMBER },
+    total_fat_g: { type: SchemaType.NUMBER },
+    glucose_impact_score: { type: SchemaType.STRING },
+    energy_crash_risk: { type: SchemaType.STRING },
+    ai_tip: { type: SchemaType.STRING },
+  },
+  required: ["dish_name", "items", "total_calories", "total_protein_g", "total_carbs_g", "total_fat_g"],
+};
+
+function parseNum(val, fallback = 0) {
+  if (typeof val === "number") return isNaN(val) ? fallback : val;
+  if (typeof val === "string") {
+    const match = val.match(/[-+]?[0-9]*\.?[0-9]+/);
+    return match ? parseFloat(match[0]) : fallback;
+  }
+  return fallback;
+}
+
     // 6. Execute Gemini Vision Inference with Precision Model Cascade (Ephemeral in-memory stream)
     const candidateModels = [
       "gemini-2.5-flash",
       "gemini-2.5-pro",
-      "gemini-2.0-flash",
-      "gemini-1.5-pro",
-      "gemini-1.5-flash"
+      "gemini-flash-latest",
+      "gemini-pro-latest"
     ];
     let rawText = "";
     let lastErr = null;
@@ -203,6 +242,8 @@ Return ONLY valid JSON matching this exact structure:
           generationConfig: {
             temperature: 0.0, // 0.0 temperature for deterministic, clinical numerical precision
             maxOutputTokens: 2048,
+            responseMimeType: "application/json",
+            responseSchema: MEAL_ANALYSIS_SCHEMA,
           },
         });
 
@@ -211,7 +252,24 @@ Return ONLY valid JSON matching this exact structure:
         if (rawText) break;
       } catch (err) {
         lastErr = err;
-        console.warn(`Model ${modelName} failed, trying fallback:`, err.message);
+        console.warn(`Model ${modelName} with schema failed, retrying plain JSON:`, err.message);
+        // Fallback without schema if schema rejected
+        try {
+          const modelPlain = genAI.getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+              temperature: 0.0,
+              maxOutputTokens: 2048,
+              responseMimeType: "application/json",
+            },
+          });
+          const resultPlain = await modelPlain.generateContent([prompt, imagePart]);
+          rawText = resultPlain.response.text() || "";
+          if (rawText) break;
+        } catch (plainErr) {
+          lastErr = plainErr;
+          console.warn(`Model ${modelName} plain retry failed:`, plainErr.message);
+        }
       }
     }
 
@@ -222,39 +280,66 @@ Return ONLY valid JSON matching this exact structure:
     // Clean & Repair JSON using jsonrepair
     const rawParsed = safeParseJSON(rawText);
 
+    // Normalize raw item list whether root is object or array
+    const rawItemsList = Array.isArray(rawParsed)
+      ? rawParsed
+      : (Array.isArray(rawParsed.items)
+          ? rawParsed.items
+          : (Array.isArray(rawParsed.food_items) ? rawParsed.food_items : []));
+
     // Parse items first
-    const parsedItems = (rawParsed.items || rawParsed.food_items || []).map((it, idx) => ({
-      id: String(idx + 1),
-      name: it.name || "Food Item",
-      weight_g: Number(it.weight_g) || 50,
-      calories: Math.max(0, Math.round(Number(it.calories) || 0)),
-      protein_g: Math.max(0, Number((Number(it.protein_g) || 0).toFixed(1))),
-      carbs_g: Math.max(0, Number((Number(it.carbs_g) || 0).toFixed(1))),
-      fat_g: Math.max(0, Number((Number(it.fat_g) || 0).toFixed(1))),
-    }));
+    const parsedItems = rawItemsList.map((it, idx) => {
+      const macros = it.biochemical_macro_analysis?.macronutrients_per_edible_portion || it.macro_analysis || it;
+      const weightVal = it.weight_g ?? it.visual_bounding_analysis?.estimated_peeled_gram_weight ?? it.visual_bounding_and_scaling?.estimated_total_mass_g ?? 100;
+      const calVal = it.calories ?? it.biochemical_macro_analysis?.estimated_calories ?? 0;
+
+      return {
+        id: String(idx + 1),
+        name: it.name || it.item || it.item_name || "Food Item",
+        weight_g: Math.round(parseNum(weightVal, 100)),
+        calories: Math.max(0, Math.round(parseNum(calVal, 0))),
+        protein_g: Math.max(0, Number(parseNum(macros.protein_g ?? macros.protein, 0).toFixed(1))),
+        carbs_g: Math.max(0, Number(parseNum(macros.carbs_g ?? macros.carbohydrates ?? macros.carbs, 0).toFixed(1))),
+        fat_g: Math.max(0, Number(parseNum(macros.fat_g ?? macros.fat ?? macros.total_fat, 0).toFixed(1))),
+      };
+    });
 
     const sumCalories = parsedItems.reduce((acc, it) => acc + it.calories, 0);
     const sumProtein = parsedItems.reduce((acc, it) => acc + it.protein_g, 0);
     const sumCarbs = parsedItems.reduce((acc, it) => acc + it.carbs_g, 0);
     const sumFat = parsedItems.reduce((acc, it) => acc + it.fat_g, 0);
 
-    const finalCals = sumCalories > 0 ? sumCalories : (Math.round(Number(rawParsed.total_calories || rawParsed.calories)) || 250);
-    const finalProtein = sumProtein > 0 ? sumProtein : (Number(rawParsed.total_protein_g || rawParsed.protein_g) || 15);
-    const finalCarbs = sumCarbs > 0 ? sumCarbs : (Number(rawParsed.total_carbs_g || rawParsed.carbs_g) || 30);
-    const finalFat = sumFat > 0 ? sumFat : (Number(rawParsed.total_fat_g || rawParsed.fat_g) || 10);
+    const hasItems = parsedItems.length > 0;
+    let finalCals = hasItems ? sumCalories : Math.max(0, Math.round(parseNum(rawParsed.total_calories ?? rawParsed.calories, 0)));
+    let finalProtein = hasItems ? sumProtein : Math.max(0, parseNum(rawParsed.total_protein_g ?? rawParsed.protein_g, 0));
+    let finalCarbs = hasItems ? sumCarbs : Math.max(0, parseNum(rawParsed.total_carbs_g ?? rawParsed.carbs_g, 0));
+    let finalFat = hasItems ? sumFat : Math.max(0, parseNum(rawParsed.total_fat_g ?? rawParsed.fat_g, 0));
+
+    // Atwater Macro Integrity Auto-Correction:
+    // If calories > 0 but total carbs + protein + fat don't account for calories (e.g. LLM missed carbs for a fruit),
+    // calculate the missing carbs/macros according to the Atwater 4-4-9 principle:
+    if (finalCals > 0) {
+      const macroCals = (finalProtein * 4) + (finalCarbs * 4) + (finalFat * 9);
+      if (finalCarbs === 0 && finalCals > macroCals + 15) {
+        finalCarbs = Math.max(0, Number(((finalCals - (finalProtein * 4) - (finalFat * 9)) / 4).toFixed(1)));
+        if (parsedItems.length === 1 && parsedItems[0].carbs_g === 0) {
+          parsedItems[0].carbs_g = finalCarbs;
+        }
+      }
+    }
 
     // Dynamic field normalizer
     const nutritionData = {
-      dish_name: rawParsed.dish_name || rawParsed.meal_summary?.name || rawParsed.name || "Identified Meal",
+      dish_name: rawParsed.dish_name || (Array.isArray(rawParsed) && rawParsed[0]?.item) || "Identified Meal",
       total_calories: finalCals,
       total_protein_g: Number(finalProtein.toFixed(1)),
       total_carbs_g: Number(finalCarbs.toFixed(1)),
       total_fat_g: Number(finalFat.toFixed(1)),
-      estimated_oil_g: Number(rawParsed.estimated_oil_g) || 0,
+      estimated_oil_g: Math.max(0, parseNum(rawParsed.estimated_oil_g, 0)),
       items: parsedItems,
       glucose_impact_score: String(rawParsed.glucose_impact_score || "LOW"),
       energy_crash_risk: String(rawParsed.energy_crash_risk || "VERY_LOW"),
-      ai_tip: rawParsed.ai_tip || rawParsed.overall_analysis?.notes || "Balanced nutrition plate!",
+      ai_tip: rawParsed.ai_tip || rawParsed.overall_analysis?.notes || "Balanced nutrition profile captured by CalSnap AI.",
     };
 
     return res.status(200).json({

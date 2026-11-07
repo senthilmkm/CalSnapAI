@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet, Alert, TextInput, Modal, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Switch, StyleSheet, Alert, TextInput, Modal, Platform, ActivityIndicator, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { User, Bell, Trash2, Sparkles, Smartphone, Target, Calculator, Info, Globe, Clock, ShieldAlert, X, Check, Scale } from 'lucide-react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -270,6 +270,31 @@ export default function SettingsScreen() {
     return `🎉 Active Plan: CalSnap AI Pro (Unlimited AI Scans)`;
   };
 
+  const handleManageSubscription = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (profile.is_pro_subscriber) {
+      if (Platform.OS === 'ios') {
+        try {
+          const url = 'https://apps.apple.com/account/subscriptions';
+          const canOpen = await Linking.canOpenURL(url);
+          if (canOpen) {
+            await Linking.openURL(url);
+            return;
+          }
+        } catch {
+          // Fallback to informative alert
+        }
+      }
+      Alert.alert(
+        'Active Pro Subscription',
+        'You have an active CalSnap AI Pro subscription. You can manage or cancel your plan anytime in your Apple ID Subscriptions Settings.',
+        [{ text: 'OK' }]
+      );
+    } else {
+      setPaywallVisible(true);
+    }
+  };
+
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: '#F8FAFC' }}>
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
@@ -502,7 +527,7 @@ export default function SettingsScreen() {
         </View>
         <Text style={styles.planStatus}>{getActivePlanLabel()}</Text>
         <View style={styles.subBtnRow}>
-          <TouchableOpacity style={styles.manageSubBtn} onPress={() => setPaywallVisible(true)} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.manageSubBtn} onPress={handleManageSubscription} activeOpacity={0.85}>
             <Text style={styles.manageSubText}>
               {profile.is_pro_subscriber
                 ? pricingConfig.pro_tier?.manage_sub_label || 'Manage Plan'

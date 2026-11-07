@@ -81,6 +81,7 @@ export function BarcodeScannerModal({ visible, onClose, onMealLogged }: BarcodeS
     const mealData: Omit<MealRecord, 'id' | 'timestamp'> = {
       dish_name: scannedProduct.product_name,
       meal_type: 'Snack',
+      source: 'barcode',
       items: [
         {
           id: `item-${Date.now()}`,

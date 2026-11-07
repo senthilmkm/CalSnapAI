@@ -6,6 +6,7 @@ interface PortionSliderProps {
   onChangeMultiplier: (multiplier: number) => void;
   isPro?: boolean;
   onPressLock?: () => void;
+  mode?: 'plate' | 'servings';
 }
 
 export const PortionSlider: React.FC<PortionSliderProps> = ({
@@ -13,16 +14,35 @@ export const PortionSlider: React.FC<PortionSliderProps> = ({
   onChangeMultiplier,
   isPro = true,
   onPressLock,
+  mode = 'plate',
 }) => {
-  const portions = [
-    { label: '½ Plate', sub: '50%', val: 0.5 },
-    { label: '¾ Plate', sub: '75%', val: 0.75 },
-    { label: 'Whole Plate', sub: 'AI Default', val: 1.0 },
-    { label: '+Extra Scoop', sub: '125%', val: 1.25 },
-    { label: 'Had Seconds', sub: '150%', val: 1.5 },
-  ];
+  const isServingsMode = mode === 'servings';
+
+  const portions = isServingsMode
+    ? [
+        { label: '½ Serving', sub: '0.5x', val: 0.5 },
+        { label: '¾ Serving', sub: '0.75x', val: 0.75 },
+        { label: '1 Serving', sub: '1.0x', val: 1.0 },
+        { label: '1½ Servings', sub: '1.5x', val: 1.5 },
+        { label: '2 Servings', sub: '2.0x', val: 2.0 },
+      ]
+    : [
+        { label: '½ Plate', sub: '50%', val: 0.5 },
+        { label: '¾ Plate', sub: '75%', val: 0.75 },
+        { label: 'Whole Plate', sub: 'AI Default', val: 1.0 },
+        { label: '+Extra Scoop', sub: '125%', val: 1.25 },
+        { label: 'Had Seconds', sub: '150%', val: 1.5 },
+      ];
 
   const getMultiplierLabel = (val: number) => {
+    if (isServingsMode) {
+      if (val === 1.0) return '1 Serving (1.0x)';
+      if (val === 0.5) return '½ Serving (0.5x)';
+      if (val === 0.75) return '¾ Serving (0.75x)';
+      if (val === 1.5) return '1½ Servings (1.5x)';
+      if (val === 2.0) return '2 Servings (2.0x)';
+      return `${val}x Servings`;
+    }
     if (val === 1.0) return 'Whole Plate (1.0x)';
     if (val === 0.5) return '½ Plate (0.5x)';
     if (val === 0.75) return '¾ Plate (0.75x)';
@@ -32,6 +52,15 @@ export const PortionSlider: React.FC<PortionSliderProps> = ({
   };
 
   const getHelperText = (val: number) => {
+    if (isServingsMode) {
+      if (val === 1.0) {
+        return 'Standard 1 serving from nutrition facts label. Adjust if you ate more or less.';
+      }
+      if (val < 1.0) {
+        return `Portion scaled down to ${Math.round(val * 100)}% of standard serving.`;
+      }
+      return `Portion scaled up to ${val}x servings (+${Math.round((val - 1.0) * 100)}% calories).`;
+    }
     if (val === 1.0) {
       return 'Standard adult plate detected by AI. Change only if you ate less or had seconds.';
     }
@@ -46,7 +75,9 @@ export const PortionSlider: React.FC<PortionSliderProps> = ({
       {/* Header Row */}
       <View style={styles.headerRow}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text style={styles.title}>🍽️ Portion Scale</Text>
+          <Text style={styles.title}>
+            {isServingsMode ? '📦 Servings / Quantity' : '🍽️ Portion Scale'}
+          </Text>
           {!isPro && <Text style={styles.lockBadge}>🔒 PRO</Text>}
         </View>
 
