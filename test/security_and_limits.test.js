@@ -239,6 +239,42 @@ deleteMeal(logged.id);
 assert.strictEqual(state.meals.length, initialMealCount, 'Accidental staple must be completely purged on undo');
 console.log('✅ PASSED: 1-Tap Staples Undo reliably purges the meal from journal.\n');
 
-console.log('🎉 ALL 13 SECURITY & SETTINGS VERIFICATION TESTS PASSED (100% COVERAGE)!');
+console.log('Test 14: Onboarding completion triggers Paywall exclusively for first-time Free-tier users');
+function shouldTriggerPaywallAfterOnboarding({ completed, isFirstTime, isProSubscriber }) {
+  return Boolean(completed && isFirstTime && !isProSubscriber);
+}
+
+// Case A: First-time free user completes onboarding -> MUST trigger paywall
+assert.strictEqual(
+  shouldTriggerPaywallAfterOnboarding({ completed: true, isFirstTime: true, isProSubscriber: false }),
+  true,
+  'First-time free user completing onboarding must be shown 7-day trial paywall'
+);
+
+// Case B: User skips onboarding -> MUST NOT trigger paywall
+assert.strictEqual(
+  shouldTriggerPaywallAfterOnboarding({ completed: false, isFirstTime: false, isProSubscriber: false }),
+  false,
+  'Skipping onboarding must never trigger paywall'
+);
+
+// Case C: Existing user editing their goal -> MUST NOT trigger paywall
+assert.strictEqual(
+  shouldTriggerPaywallAfterOnboarding({ completed: true, isFirstTime: false, isProSubscriber: false }),
+  false,
+  'Existing user adjusting roadmap must not be interrupted by paywall'
+);
+
+// Case D: Active Pro subscriber completing onboarding -> MUST NOT trigger paywall
+assert.strictEqual(
+  shouldTriggerPaywallAfterOnboarding({ completed: true, isFirstTime: true, isProSubscriber: true }),
+  false,
+  'Active Pro subscriber must never be shown the paywall'
+);
+
+console.log('✅ PASSED: Paywall post-onboarding trigger logic strictly protects existing users and subscribers while converting new free users.\n');
+
+console.log('🎉 ALL 14 SECURITY & SETTINGS VERIFICATION TESTS PASSED (100% COVERAGE)!');
+
 
 

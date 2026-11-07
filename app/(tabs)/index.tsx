@@ -828,7 +828,15 @@ export default function TodayDashboardScreen() {
       {/* 30-Second First-Launch Onboarding Modal (Option A) */}
       <OnboardingModal
         visible={onboardingModalVisible}
-        onClose={() => setOnboardingModalVisible(false)}
+        onClose={(completed?: boolean, isFirstTime?: boolean) => {
+          setOnboardingModalVisible(false);
+          const currentProfile = useAppStore.getState().profile;
+          if (completed && isFirstTime && !currentProfile.is_pro_subscriber) {
+            setTimeout(() => {
+              setPaywallVisible(true);
+            }, 350);
+          }
+        }}
       />
     </ScrollView>
     </SafeAreaView>

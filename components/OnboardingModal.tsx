@@ -29,7 +29,7 @@ import { useAppStore } from '../services/storage';
 
 interface OnboardingModalProps {
   visible: boolean;
-  onClose: () => void;
+  onClose: (completed?: boolean, isFirstTime?: boolean) => void;
 }
 
 export function OnboardingModal({ visible, onClose }: OnboardingModalProps) {
@@ -254,6 +254,7 @@ export function OnboardingModal({ visible, onClose }: OnboardingModalProps) {
 
   const handleComplete = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const isFirstTime = !profile.has_completed_onboarding;
     completeOnboarding({
       current_weight_kg: roadmap.currentKg,
       target_weight_lbs: Math.round(roadmap.targetLbs * 10) / 10,
@@ -266,13 +267,13 @@ export function OnboardingModal({ visible, onClose }: OnboardingModalProps) {
       daily_fat_g: roadmap.fatG,
       target_date: roadmap.projectedDateStr,
     });
-    onClose();
+    onClose(true, isFirstTime);
   };
 
   const handleSkip = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     skipOnboarding();
-    onClose();
+    onClose(false, false);
   };
 
   const formatDisplayDate = (isoStr?: string) => {
