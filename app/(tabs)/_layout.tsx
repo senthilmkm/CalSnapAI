@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { View, StyleSheet } from 'react-native';
+import { DeviceEventEmitter, View, StyleSheet } from 'react-native';
 import { Home, Camera, BarChart2, Settings } from 'lucide-react-native';
 
 export default function TabLayout() {
@@ -34,6 +34,13 @@ export default function TabLayout() {
 
       <Tabs.Screen
         name="snap"
+        listeners={({ navigation }) => ({
+          tabPress: () => {
+            if (navigation.isFocused()) {
+              DeviceEventEmitter.emit('calsnap:snapTabPress');
+            }
+          },
+        })}
         options={{
           title: 'Snap & Log',
           tabBarIcon: ({ color, size }) => (

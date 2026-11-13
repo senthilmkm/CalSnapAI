@@ -31,6 +31,81 @@ export interface AnalyzeMealParams {
   geminiApiKey?: string;
 }
 
+function resolveBaseNutrition(raw: any) {
+  const rawItems = Array.isArray(raw?.items) ? raw.items : [];
+  let items = rawItems.map((it: any, idx: number) => {
+    const p = Math.max(0, Number(it?.protein_g) || 0);
+    const c = Math.max(0, Number(it?.carbs_g) || 0);
+    const f = Math.max(0, Number(it?.fat_g) || 0);
+    const macroCals = Math.round(p * 4 + c * 4 + f * 9);
+    let cals = Math.max(0, Math.round(Number(it?.calories) || 0));
+    if (macroCals >= 10 && (cals <= 0 || cals < macroCals * 0.5)) {
+      cals = macroCals;
+    }
+    return {
+      ...it,
+      id: it?.id || String(idx + 1),
+      calories: cals,
+      protein_g: p,
+      carbs_g: c,
+      fat_g: f,
+    };
+  });
+
+  const sumCals = items.reduce((acc: number, it: any) => acc + it.calories, 0);
+  const sumProtein = items.reduce((acc: number, it: any) => acc + it.protein_g, 0);
+  const sumCarbs = items.reduce((acc: number, it: any) => acc + it.carbs_g, 0);
+  const sumFat = items.reduce((acc: number, it: any) => acc + it.fat_g, 0);
+
+  const rawTotalCals = Math.max(0, Math.round(Number(raw?.total_calories) || 0));
+  const rawTotalProtein = Math.max(0, Number(raw?.total_protein_g) || 0);
+  const rawTotalCarbs = Math.max(0, Number(raw?.total_carbs_g) || 0);
+  const rawTotalFat = Math.max(0, Number(raw?.total_fat_g) || 0);
+  const rawMacroCals = Math.round(rawTotalProtein * 4 + rawTotalCarbs * 4 + rawTotalFat * 9);
+  const bestRawTotalCals = rawTotalCals > 0 ? rawTotalCals : rawMacroCals;
+
+  const itemsUsable =
+    items.length > 0 &&
+    sumCals > 0 &&
+    (bestRawTotalCals <= 20 || sumCals >= bestRawTotalCals * 0.3);
+
+  let baseCals = itemsUsable ? sumCals : bestRawTotalCals;
+  const baseProtein = itemsUsable ? sumProtein : rawTotalProtein > 0 ? rawTotalProtein : sumProtein;
+  const baseCarbs = itemsUsable ? sumCarbs : rawTotalCarbs > 0 ? rawTotalCarbs : sumCarbs;
+  const baseFat = itemsUsable ? sumFat : rawTotalFat > 0 ? rawTotalFat : sumFat;
+
+  const totalMacroCals = Math.round(baseProtein * 4 + baseCarbs * 4 + baseFat * 9);
+  if (totalMacroCals > 0 && (baseCals <= 0 || baseCals < totalMacroCals * 0.5)) {
+    baseCals = totalMacroCals;
+  }
+
+  if (baseCals > 0 && !itemsUsable) {
+    if (items.length === 1) {
+      items[0] = {
+        ...items[0],
+        calories: baseCals,
+        protein_g: baseProtein,
+        carbs_g: baseCarbs,
+        fat_g: baseFat,
+      };
+    } else {
+      items = [
+        {
+          id: '1',
+          name: raw?.dish_name || 'Analyzed Meal',
+          weight_g: items.reduce((acc: number, it: any) => acc + (Number(it?.weight_g) || 0), 0) || 250,
+          calories: baseCals,
+          protein_g: baseProtein,
+          carbs_g: baseCarbs,
+          fat_g: baseFat,
+        },
+      ];
+    }
+  }
+
+  return { items, baseCals, baseProtein, baseCarbs, baseFat };
+}
+
 export async function analyzeMealImage(params: AnalyzeMealParams): Promise<Omit<MealRecord, 'id' | 'timestamp'>> {
   // Service Layer Security Gate: Verify quota before making any AI network requests
   const state = useAppStore.getState();
@@ -83,22 +158,12 @@ export async function analyzeMealImage(params: AnalyzeMealParams): Promise<Omit<
     if (response.ok) {
       const json = await response.json();
       if (json.success && json.data) {
-        const items = json.data.items || [];
-        const hasItems = items.length > 0;
-        const sumCals = items.reduce((acc: number, it: any) => acc + (Number(it.calories) || 0), 0);
-        const sumProtein = items.reduce((acc: number, it: any) => acc + (Number(it.protein_g) || 0), 0);
-        const sumCarbs = items.reduce((acc: number, it: any) => acc + (Number(it.carbs_g) || 0), 0);
-        const sumFat = items.reduce((acc: number, it: any) => acc + (Number(it.fat_g) || 0), 0);
+        const { items, baseCals, baseProtein, baseCarbs, baseFat } = resolveBaseNutrition(json.data);
 
         let oilGrams = Number(json.data.estimated_oil_g) || 0;
         if (params.cookingStyle === 'raw') oilGrams = 0;
         else if (params.cookingStyle === 'heavy') oilGrams = Math.max(oilGrams, 15);
         else if (params.cookingStyle === 'light' && oilGrams > 0) oilGrams = 5;
-
-        const baseCals = hasItems ? sumCals : (Number(json.data.total_calories) || 0);
-        const baseProtein = hasItems ? sumProtein : (Number(json.data.total_protein_g) || 0);
-        const baseCarbs = hasItems ? sumCarbs : (Number(json.data.total_carbs_g) || 0);
-        const baseFat = hasItems ? sumFat : (Number(json.data.total_fat_g) || 0);
 
         const totalCals = baseCals + (oilGrams * 9);
         const totalFat = baseFat + oilGrams;
@@ -454,17 +519,13 @@ Return ONLY a valid, parseable JSON object with NO markdown formatting or text s
     };
   }
 
-  const items = parsed.items || [];
-  const hasItems = items.length > 0;
-  const sumCals = items.reduce((acc: number, it: any) => acc + (Number(it.calories) || 0), 0);
-  const sumProtein = items.reduce((acc: number, it: any) => acc + (Number(it.protein_g) || 0), 0);
-  const sumCarbs = items.reduce((acc: number, it: any) => acc + (Number(it.carbs_g) || 0), 0);
-  const sumFat = items.reduce((acc: number, it: any) => acc + (Number(it.fat_g) || 0), 0);
-
-  const calcCals = hasItems ? sumCals : (Number(parsed.total_calories) || 0);
-  const calcProtein = hasItems ? sumProtein : (Number(parsed.total_protein_g) || 0);
-  const calcCarbs = hasItems ? sumCarbs : (Number(parsed.total_carbs_g) || 0);
-  const calcFat = hasItems ? sumFat : (Number(parsed.total_fat_g) || 0);
+  const {
+    items,
+    baseCals: calcCals,
+    baseProtein: calcProtein,
+    baseCarbs: calcCarbs,
+    baseFat: calcFat,
+  } = resolveBaseNutrition(parsed);
 
   return {
     dish_name: parsed.dish_name || 'Analyzed Meal',

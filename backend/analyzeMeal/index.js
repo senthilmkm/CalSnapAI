@@ -1,21 +1,9 @@
-const { GoogleGenerativeAI, SchemaType } = require("@google/generative-ai");
-const { jsonrepair } = require("jsonrepair");
-
-/**
- * Robust JSON Parser using jsonrepair for zero-failure LLM output handling
- */
-function safeParseJSON(rawText) {
-  if (!rawText) throw new Error("Empty AI response text");
-  const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-  const rawJson = jsonMatch ? jsonMatch[0] : rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-  
-  try {
-    return JSON.parse(rawJson);
-  } catch (e) {
-    const repaired = jsonrepair(rawJson);
-    return JSON.parse(repaired);
-  }
-}
+const { GoogleGenAI, Type } = require("@google/genai");
+const {
+  safeParseJSON,
+  isImplausibleNutrition,
+  normalizeAndRepairNutrition,
+} = require("./nutrition");
 
 // In-Memory Quota & Rate-Limiting Store (keyed by userId:YYYY-MM-DD)
 const userDailyQuotaMap = new Map();
@@ -125,7 +113,7 @@ exports.analyzeMeal = async (req, res) => {
       return res.status(500).json({ error: "Server Configuration Error: GEMINI_API_KEY missing" });
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
+    const ai = new GoogleGenAI({ apiKey });
 
     // 5. Construct Master Clinical Nutrition & Volumetric Prompt
     const prompt = `You are CalSnap AI — the world's most advanced clinical AI nutritionist, computer vision food scientist, and biochemical macro analyst. Perform a meticulous, high-precision visual and biochemical analysis of this meal photo.
@@ -186,161 +174,106 @@ Return ONLY valid JSON matching this exact structure:
     };
 
 const MEAL_ANALYSIS_SCHEMA = {
-  type: SchemaType.OBJECT,
+  type: Type.OBJECT,
   properties: {
-    dish_name: { type: SchemaType.STRING },
+    dish_name: { type: Type.STRING },
     items: {
-      type: SchemaType.ARRAY,
+      type: Type.ARRAY,
       items: {
-        type: SchemaType.OBJECT,
+        type: Type.OBJECT,
         properties: {
-          name: { type: SchemaType.STRING },
-          weight_g: { type: SchemaType.NUMBER },
-          calories: { type: SchemaType.NUMBER },
-          protein_g: { type: SchemaType.NUMBER },
-          carbs_g: { type: SchemaType.NUMBER },
-          fat_g: { type: SchemaType.NUMBER },
+          name: { type: Type.STRING },
+          weight_g: { type: Type.NUMBER },
+          calories: { type: Type.NUMBER },
+          protein_g: { type: Type.NUMBER },
+          carbs_g: { type: Type.NUMBER },
+          fat_g: { type: Type.NUMBER },
         },
         required: ["name", "weight_g", "calories", "protein_g", "carbs_g", "fat_g"],
       },
     },
-    estimated_oil_g: { type: SchemaType.NUMBER },
-    total_calories: { type: SchemaType.NUMBER },
-    total_protein_g: { type: SchemaType.NUMBER },
-    total_carbs_g: { type: SchemaType.NUMBER },
-    total_fat_g: { type: SchemaType.NUMBER },
-    glucose_impact_score: { type: SchemaType.STRING },
-    energy_crash_risk: { type: SchemaType.STRING },
-    ai_tip: { type: SchemaType.STRING },
+    estimated_oil_g: { type: Type.NUMBER },
+    total_calories: { type: Type.NUMBER },
+    total_protein_g: { type: Type.NUMBER },
+    total_carbs_g: { type: Type.NUMBER },
+    total_fat_g: { type: Type.NUMBER },
+    glucose_impact_score: { type: Type.STRING },
+    energy_crash_risk: { type: Type.STRING },
+    ai_tip: { type: Type.STRING },
   },
   required: ["dish_name", "items", "total_calories", "total_protein_g", "total_carbs_g", "total_fat_g"],
 };
 
-function parseNum(val, fallback = 0) {
-  if (typeof val === "number") return isNaN(val) ? fallback : val;
-  if (typeof val === "string") {
-    const match = val.match(/[-+]?[0-9]*\.?[0-9]+/);
-    return match ? parseFloat(match[0]) : fallback;
-  }
-  return fallback;
-}
-
     // 6. Execute Gemini Vision Inference with Precision Model Cascade (Ephemeral in-memory stream)
     const candidateModels = [
-      "gemini-2.5-flash",
-      "gemini-2.5-pro",
-      "gemini-flash-latest",
-      "gemini-pro-latest"
+      "gemini-4-hydrogen",
+      "gemini-3.8-flash",
+      "gemini-3.5-flash-lite",
     ];
-    let rawText = "";
+    let nutritionData = null;
+    let fallbackCandidate = null;
     let lastErr = null;
 
     for (const modelName of candidateModels) {
-      try {
-        const model = genAI.getGenerativeModel({
-          model: modelName,
-          generationConfig: {
-            temperature: 0.0, // 0.0 temperature for deterministic, clinical numerical precision
-            maxOutputTokens: 2048,
-            responseMimeType: "application/json",
-            responseSchema: MEAL_ANALYSIS_SCHEMA,
-          },
-        });
+      const configs = [
+        {
+          temperature: 0.0,
+          maxOutputTokens: 8192,
+          responseMimeType: "application/json",
+          responseSchema: MEAL_ANALYSIS_SCHEMA,
+          thinkingConfig: { thinkingLevel: "low" },
+        },
+        {
+          temperature: 0.0,
+          maxOutputTokens: 8192,
+          responseMimeType: "application/json",
+        },
+      ];
 
-        const result = await model.generateContent([prompt, imagePart]);
-        rawText = result.response.text() || "";
-        if (rawText) break;
-      } catch (err) {
-        lastErr = err;
-        console.warn(`Model ${modelName} with schema failed, retrying plain JSON:`, err.message);
-        // Fallback without schema if schema rejected
+      for (const config of configs) {
         try {
-          const modelPlain = genAI.getGenerativeModel({
+          const response = await ai.models.generateContent({
             model: modelName,
-            generationConfig: {
-              temperature: 0.0,
-              maxOutputTokens: 2048,
-              responseMimeType: "application/json",
-            },
+            contents: [prompt, imagePart],
+            config,
           });
-          const resultPlain = await modelPlain.generateContent([prompt, imagePart]);
-          rawText = resultPlain.response.text() || "";
-          if (rawText) break;
-        } catch (plainErr) {
-          lastErr = plainErr;
-          console.warn(`Model ${modelName} plain retry failed:`, plainErr.message);
+          const rawText = response.text || "";
+          const finishReason = response.candidates?.[0]?.finishReason;
+          if (!rawText) continue;
+
+          const parsed = safeParseJSON(rawText);
+          const candidate = normalizeAndRepairNutrition(parsed);
+          fallbackCandidate = candidate;
+
+          if (finishReason === "MAX_TOKENS") {
+            console.warn(`Model ${modelName} hit MAX_TOKENS; trying next model.`);
+            break;
+          }
+          if (isImplausibleNutrition(candidate)) {
+            console.warn(`Model ${modelName} returned implausible calories (${candidate.total_calories}); trying next model.`);
+            break;
+          }
+
+          nutritionData = candidate;
+          break;
+        } catch (err) {
+          lastErr = err;
+          console.warn(`Model ${modelName} attempt failed:`, err.message);
         }
       }
+
+      if (nutritionData) break;
     }
 
-    if (!rawText && lastErr) {
-      throw lastErr;
-    }
-
-    // Clean & Repair JSON using jsonrepair
-    const rawParsed = safeParseJSON(rawText);
-
-    // Normalize raw item list whether root is object or array
-    const rawItemsList = Array.isArray(rawParsed)
-      ? rawParsed
-      : (Array.isArray(rawParsed.items)
-          ? rawParsed.items
-          : (Array.isArray(rawParsed.food_items) ? rawParsed.food_items : []));
-
-    // Parse items first
-    const parsedItems = rawItemsList.map((it, idx) => {
-      const macros = it.biochemical_macro_analysis?.macronutrients_per_edible_portion || it.macro_analysis || it;
-      const weightVal = it.weight_g ?? it.visual_bounding_analysis?.estimated_peeled_gram_weight ?? it.visual_bounding_and_scaling?.estimated_total_mass_g ?? 100;
-      const calVal = it.calories ?? it.biochemical_macro_analysis?.estimated_calories ?? 0;
-
-      return {
-        id: String(idx + 1),
-        name: it.name || it.item || it.item_name || "Food Item",
-        weight_g: Math.round(parseNum(weightVal, 100)),
-        calories: Math.max(0, Math.round(parseNum(calVal, 0))),
-        protein_g: Math.max(0, Number(parseNum(macros.protein_g ?? macros.protein, 0).toFixed(1))),
-        carbs_g: Math.max(0, Number(parseNum(macros.carbs_g ?? macros.carbohydrates ?? macros.carbs, 0).toFixed(1))),
-        fat_g: Math.max(0, Number(parseNum(macros.fat_g ?? macros.fat ?? macros.total_fat, 0).toFixed(1))),
-      };
-    });
-
-    const sumCalories = parsedItems.reduce((acc, it) => acc + it.calories, 0);
-    const sumProtein = parsedItems.reduce((acc, it) => acc + it.protein_g, 0);
-    const sumCarbs = parsedItems.reduce((acc, it) => acc + it.carbs_g, 0);
-    const sumFat = parsedItems.reduce((acc, it) => acc + it.fat_g, 0);
-
-    const hasItems = parsedItems.length > 0;
-    let finalCals = hasItems ? sumCalories : Math.max(0, Math.round(parseNum(rawParsed.total_calories ?? rawParsed.calories, 0)));
-    let finalProtein = hasItems ? sumProtein : Math.max(0, parseNum(rawParsed.total_protein_g ?? rawParsed.protein_g, 0));
-    let finalCarbs = hasItems ? sumCarbs : Math.max(0, parseNum(rawParsed.total_carbs_g ?? rawParsed.carbs_g, 0));
-    let finalFat = hasItems ? sumFat : Math.max(0, parseNum(rawParsed.total_fat_g ?? rawParsed.fat_g, 0));
-
-    // Atwater Macro Integrity Auto-Correction:
-    // If calories > 0 but total carbs + protein + fat don't account for calories (e.g. LLM missed carbs for a fruit),
-    // calculate the missing carbs/macros according to the Atwater 4-4-9 principle:
-    if (finalCals > 0) {
-      const macroCals = (finalProtein * 4) + (finalCarbs * 4) + (finalFat * 9);
-      if (finalCarbs === 0 && finalCals > macroCals + 15) {
-        finalCarbs = Math.max(0, Number(((finalCals - (finalProtein * 4) - (finalFat * 9)) / 4).toFixed(1)));
-        if (parsedItems.length === 1 && parsedItems[0].carbs_g === 0) {
-          parsedItems[0].carbs_g = finalCarbs;
-        }
+    if (!nutritionData) {
+      if (fallbackCandidate && !isImplausibleNutrition(fallbackCandidate)) {
+        nutritionData = fallbackCandidate;
+      } else if (lastErr) {
+        throw lastErr;
+      } else {
+        throw new Error("All Gemini models returned incomplete or implausible nutrition data.");
       }
     }
-
-    // Dynamic field normalizer
-    const nutritionData = {
-      dish_name: rawParsed.dish_name || (Array.isArray(rawParsed) && rawParsed[0]?.item) || "Identified Meal",
-      total_calories: finalCals,
-      total_protein_g: Number(finalProtein.toFixed(1)),
-      total_carbs_g: Number(finalCarbs.toFixed(1)),
-      total_fat_g: Number(finalFat.toFixed(1)),
-      estimated_oil_g: Math.max(0, parseNum(rawParsed.estimated_oil_g, 0)),
-      items: parsedItems,
-      glucose_impact_score: String(rawParsed.glucose_impact_score || "LOW"),
-      energy_crash_risk: String(rawParsed.energy_crash_risk || "VERY_LOW"),
-      ai_tip: rawParsed.ai_tip || rawParsed.overall_analysis?.notes || "Balanced nutrition profile captured by CalSnap AI.",
-    };
 
     return res.status(200).json({
       success: true,

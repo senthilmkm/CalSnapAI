@@ -9,6 +9,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Animated,
+  DeviceEventEmitter,
   Modal,
   TextInput,
   KeyboardAvoidingView,
@@ -49,6 +50,7 @@ export default function SnapScreen() {
   const [cookingStyle, setCookingStyle] = useState<'raw' | 'light' | 'heavy'>('light');
 
   // Scanner HUD Animated State
+  const scrollRef = useRef<ScrollView>(null);
   const scanAnim = useRef(new Animated.Value(0)).current;
   const [scanPhaseIndex, setScanPhaseIndex] = useState(0);
 
@@ -134,15 +136,20 @@ export default function SnapScreen() {
   const isFreeTier = !profile.is_pro_subscriber;
   const snapsRemaining = Math.max(0, FREE_DAILY_SNAP_LIMIT - todaySnapsCount);
 
+  const resetSnapView = useCallback((animated = true) => {
+    setSelectedImage(null);
+    setCurrentMealId(null);
+    setVoiceNote('');
+    setRecordingVoice(false);
+    setCookingStyle('light');
+    scrollRef.current?.scrollTo({ y: 0, animated });
+  }, []);
+
   // Reset all viewport and recording states when user returns/taps the Snap tab
   useFocusEffect(
     useCallback(() => {
-      setSelectedImage(null);
-      setCurrentMealId(null);
-      setVoiceNote('');
-      setRecordingVoice(false);
-      setCookingStyle('light');
-    }, [])
+      resetSnapView(false);
+    }, [resetSnapView])
   );
 
   // Paywall Gate Verification
@@ -293,12 +300,16 @@ export default function SnapScreen() {
       'grape', 'citrus', 'mango', 'pineapple', 'papaya', 'peach', 'plum',
       'melon', 'strawberry', 'blueberry', 'raw salad', 'fresh salad', 'raw vegetable', 'boiled egg'
     ];
+    const cookedKeywords = ['cooked', 'fried', 'curry', 'rice', 'stir-fry', 'stir fry', 'roast', 'grilled', 'sauteed', 'baked', 'dal', 'pasta', 'noodle'];
     const lowerDish = (dishName || '').toLowerCase();
-    if (rawKeywords.some((kw) => lowerDish.includes(kw))) return true;
-    return items.some((it) => {
-      const lowerItem = (it?.name || '').toLowerCase();
-      return rawKeywords.some((kw) => lowerItem.includes(kw));
-    });
+    if (cookedKeywords.some((kw) => lowerDish.includes(kw))) return false;
+    if (items.length > 0) {
+      return items.every((it) => {
+        const lowerItem = (it?.name || '').toLowerCase();
+        return rawKeywords.some((kw) => lowerItem.includes(kw)) && !cookedKeywords.some((kw) => lowerItem.includes(kw));
+      });
+    }
+    return rawKeywords.some((kw) => lowerDish.includes(kw));
   };
 
   const processImageAnalysis = async (base64: string, uri: string) => {
@@ -412,11 +423,34 @@ export default function SnapScreen() {
 
   const handleSnapAnother = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedImage(null);
-    setCurrentMealId(null);
-    setVoiceNote('');
-    setCookingStyle('light');
+    resetSnapView(true);
   };
+
+  const snapTabStateRef = useRef({
+    analyzing: false,
+    hasResult: false,
+    onCamera: () => {},
+    onReset: () => {},
+  });
+  snapTabStateRef.current = {
+    analyzing,
+    hasResult: Boolean(currentMealId || selectedImage),
+    onCamera: handleCameraSnap,
+    onReset: handleSnapAnother,
+  };
+
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('calsnap:snapTabPress', () => {
+      const { analyzing: isBusy, hasResult, onCamera, onReset } = snapTabStateRef.current;
+      if (isBusy) return;
+      if (hasResult) {
+        onReset();
+      } else {
+        onCamera();
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   const laserTranslateY = scanAnim.interpolate({
     inputRange: [0, 1],
@@ -464,7 +498,7 @@ export default function SnapScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Main Camera Viewfinder Target Box */}
         <TouchableOpacity style={styles.cameraBox} onPress={handleCameraSnap} activeOpacity={0.9}>
           {selectedImage ? (
@@ -1289,14 +1323,19 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   snapAnotherBtn: {
-    paddingVertical: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#EEF2FF',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
     alignItems: 'center',
     justifyContent: 'center',
   },
   snapAnotherBtnText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#4F46E5',
   },
   dishHeaderRow: {
     flexDirection: 'row',
