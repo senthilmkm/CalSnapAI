@@ -27,6 +27,7 @@ function getLastDays(numDays: number): { key: string; label: string }[] {
 export default function InsightsScreen() {
   const [exporting, setExporting] = useState(false);
   const [paywallVisible, setPaywallVisible] = useState(false);
+  const [paywallReason, setPaywallReason] = useState<'feature'>('feature');
   const [chartRange, setChartRange] = useState<7 | 14 | 30>(7);
   const meals = useAppStore((state) => state.meals);
   const goals = useAppStore((state) => state.goals);
@@ -35,6 +36,7 @@ export default function InsightsScreen() {
   const handleExportPDF = async () => {
     if (!profile?.is_pro_subscriber) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setPaywallReason('feature');
       setPaywallVisible(true);
       return;
     }
@@ -420,7 +422,7 @@ export default function InsightsScreen() {
         </View>
       </View>
 
-      <PaywallModal visible={paywallVisible} onClose={() => setPaywallVisible(false)} />
+      <PaywallModal visible={paywallVisible} reason={paywallReason} onClose={() => setPaywallVisible(false)} />
     </ScrollView>
     </SafeAreaView>
   );

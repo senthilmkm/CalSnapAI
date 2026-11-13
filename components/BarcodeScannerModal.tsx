@@ -34,11 +34,9 @@ export function BarcodeScannerModal({ visible, onClose, onMealLogged }: BarcodeS
   const [scannedProduct, setScannedProduct] = useState<BarcodeProduct | null>(null);
   const [customCalorieInput, setCustomCalorieInput] = useState<string>('');
   const [paywallVisible, setPaywallVisible] = useState<boolean>(false);
+  const [paywallReason, setPaywallReason] = useState<'second_meal' | 'upgrade'>('second_meal');
 
   const addMeal = useAppStore((state) => state.addMeal);
-  const incrementDailyScan = useAppStore((state) => state.incrementDailyScan);
-  const profile = useAppStore((state) => state.profile);
-  const getTodayMeals = useAppStore((state) => state.getTodayMeals);
 
   const handleToggleTorch = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -47,9 +45,10 @@ export function BarcodeScannerModal({ visible, onClose, onMealLogged }: BarcodeS
 
   const handleBarcodeScanned = async (result: BarcodeScanningResult) => {
     if (scanned || loading) return;
-    const todayCount = useAppStore.getState().getTodayScanCount();
-    if (!profile.is_pro_subscriber && todayCount >= 1) {
+    if (!useAppStore.getState().isQuotaReady()) return;
+    if (!useAppStore.getState().canLogAnotherMeal()) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      setPaywallReason('second_meal');
       setPaywallVisible(true);
       return;
     }
@@ -73,6 +72,15 @@ export function BarcodeScannerModal({ visible, onClose, onMealLogged }: BarcodeS
 
   const handleLogProduct = () => {
     if (!scannedProduct) return;
+    const gate = useAppStore.getState().consumeFreeMealLog();
+    if (!gate.allowed) {
+      if (gate.reason !== 'pending') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        setPaywallReason('second_meal');
+        setPaywallVisible(true);
+      }
+      return;
+    }
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
@@ -108,7 +116,6 @@ export function BarcodeScannerModal({ visible, onClose, onMealLogged }: BarcodeS
     };
 
     const newMeal = addMeal(mealData);
-    incrementDailyScan();
     if (onMealLogged) {
       onMealLogged(newMeal);
     }
@@ -307,7 +314,7 @@ export function BarcodeScannerModal({ visible, onClose, onMealLogged }: BarcodeS
           </View>
         )}
       </View>
-      <PaywallModal visible={paywallVisible} onClose={() => setPaywallVisible(false)} />
+      <PaywallModal visible={paywallVisible} reason={paywallReason} onClose={() => setPaywallVisible(false)} />
     </Modal>
   );
 }

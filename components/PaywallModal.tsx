@@ -4,17 +4,20 @@ import { X, Check, Zap, ShieldCheck, Sparkles, RefreshCw, Flame, Sliders, FileTe
 import Purchases, { PurchasesPackage } from 'react-native-purchases';
 import { useAppStore } from '../services/storage';
 import pricingConfig from '../config/pricing.json';
+import { paywallCopy, PaywallReason } from '../services/freeTier';
 
 interface PaywallModalProps {
   visible: boolean;
   onClose: () => void;
+  reason?: PaywallReason;
 }
 
 const PRIVACY_URL = 'https://senthilmkm.github.io/CalSnapAI/privacy.html';
 const TERMS_URL = 'https://senthilmkm.github.io/CalSnapAI/support.html';
 
-export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) => {
+export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, reason = 'upgrade' }) => {
   const [selectedPlan, setSelectedPlan] = useState<'annual' | 'monthly'>('annual');
+  const copy = paywallCopy(reason, pricingConfig);
   const [loading, setLoading] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [packages, setPackages] = useState<{ monthly?: PurchasesPackage; annual?: PurchasesPackage }>({});
@@ -24,7 +27,9 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
 
   // Fetch Offerings from RevenueCat
   useEffect(() => {
-    if (visible && Platform.OS === 'ios') {
+    if (!visible) return;
+    setSelectedPlan('annual');
+    if (Platform.OS === 'ios') {
       fetchOfferings();
     }
   }, [visible]);
@@ -137,10 +142,13 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose }) 
             </View>
           </View>
 
-          <Text style={styles.headline}>{pricingConfig.paywall_headline || 'Unlock CalSnap AI Pro'}</Text>
-          <Text style={styles.subheadline}>
-            {pricingConfig.paywall_subheadline || 'Zero-friction food logging, weekly calorie banking, and interactive oil sliders.'}
-          </Text>
+          <Text style={styles.headline}>{copy.headline}</Text>
+          <Text style={styles.subheadline}>{copy.subheadline}</Text>
+
+          <View style={styles.limitCard}>
+            <Text style={styles.limitTitle}>Before the {copy.trialDays}-day trial</Text>
+            <Text style={styles.limitBody}>{copy.detail}</Text>
+          </View>
 
           {/* High-Converting Value Callout Banner */}
           <View style={styles.coffeeBanner}>
@@ -452,11 +460,35 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
+    paddingHorizontal: 16,
+  },
+  limitCard: {
+    width: '100%',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  limitTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#92400E',
+    marginBottom: 4,
+  },
+  limitBody: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#78350F',
   },
   ctaText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: '#FFFFFF',
+    textAlign: 'center',
+    flexGrow: 1,
+    flexShrink: 1,
   },
   guaranteeRow: {
     flexDirection: 'row',

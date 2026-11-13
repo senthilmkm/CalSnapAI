@@ -2,6 +2,19 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MealRecord, UserGoals, NotificationSettings, HistorySettings, UserProfile, WeightEntry, StapleItem } from '../types/nutrition';
+import pricingConfig from '../config/pricing.json';
+import type { MealQuota } from './freeTier';
+import {
+  applyIncrement,
+  dailyLimitFromConfig,
+  displayedLogCount,
+  localDayKey,
+  profileToQuota,
+  sealQuota,
+  stricterQuota,
+  withLaunchPrompt,
+} from './freeTier';
+import { isQuotaReady } from './secureQuota';
 
 interface AppState {
   // User Profile & Auth
@@ -71,8 +84,13 @@ interface AppState {
   updateHistorySettings: (settings: Partial<HistorySettings>) => void;
 
   // Security & Scan Limits
+  mealQuota: MealQuota;
   incrementDailyScan: () => void;
   getTodayScanCount: () => number;
+  isQuotaReady: () => boolean;
+  canLogAnotherMeal: () => boolean;
+  consumeFreeMealLog: () => { allowed: boolean; reason: 'pro' | 'free' | 'limit' | 'pending' };
+  markLaunchPaywallShown: () => void;
   dismissWelcomeCard: () => void;
 
   // Derived Calculations
@@ -130,13 +148,21 @@ const INITIAL_WEIGHT_ENTRIES: WeightEntry[] = [
   { id: 'w-6', timestamp: new Date().toISOString(), weight_lbs: 165.3, note: 'Latest weigh-in' },
 ];
 
-const getTodayKey = (): string => {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+const getTodayKey = (): string => localDayKey(new Date());
+
+const FREE_DAILY_LOG_LIMIT = dailyLimitFromConfig(pricingConfig);
+
+const EMPTY_MEAL_QUOTA: MealQuota = {
+  day: '',
+  count: 0,
+  lastLogTimestamp: '',
+  lastLaunchPaywallDay: '',
+  launchPaywallSeen: false,
 };
+
+function resolvedMealQuota(mealQuota: MealQuota | undefined, profile: UserProfile, now: Date): MealQuota {
+  return stricterQuota(mealQuota || EMPTY_MEAL_QUOTA, profileToQuota(profile), now);
+}
 
 export const useAppStore = create<AppState>()(
   persist(
@@ -192,27 +218,32 @@ export const useAppStore = create<AppState>()(
         })),
 
       deleteAccount: () =>
-        set(() => ({
-          meals: [],
-          profile: {
-            id: `guest-user-${Date.now()}`,
-            is_guest: true,
-            email: undefined,
-            is_pro_subscriber: false,
-            subscription_tier: 'free',
-            has_completed_onboarding: false,
-            onboarding_skipped: false,
-            streak_days: 0,
-            streak_freeze_count: 1,
-            last_logged_date: undefined,
-            daily_scans_count: 0,
-            last_scan_date: new Date().toISOString().split('T')[0],
-            has_consented_ai_data_sharing: false,
-          },
-          goals: DEFAULT_GOALS,
-          water_logs: {},
-          weight_entries: [],
-        })),
+        set((state) => {
+          const now = new Date();
+          const preserved = sealQuota(state.mealQuota, state.profile, now);
+          return {
+            mealQuota: preserved,
+            meals: [],
+            profile: {
+              id: `guest-user-${Date.now()}`,
+              is_guest: true,
+              email: undefined,
+              is_pro_subscriber: false,
+              subscription_tier: 'free',
+              has_completed_onboarding: false,
+              onboarding_skipped: false,
+              streak_days: 0,
+              streak_freeze_count: 1,
+              last_logged_date: undefined,
+              daily_scans_count: 0,
+              last_scan_date: localDayKey(now),
+              has_consented_ai_data_sharing: false,
+            },
+            goals: DEFAULT_GOALS,
+            water_logs: {},
+            weight_entries: [],
+          };
+        }),
 
       completeOnboarding: (data) =>
         set((state) => {
@@ -673,55 +704,66 @@ export const useAppStore = create<AppState>()(
           return itemDateKey === targetDateKey;
         });
       },
+      mealQuota: EMPTY_MEAL_QUOTA,
+
       incrementDailyScan: () => {
-        const todayStr = getTodayKey();
-        const nowIso = new Date().toISOString();
+        const now = new Date();
         set((state) => {
-          const isSameDay = state.profile.last_scan_date === todayStr;
-          const currentCount = isSameDay ? (state.profile.daily_scans_count || 0) : 0;
+          const base = resolvedMealQuota(state.mealQuota, state.profile, now);
+          const next = applyIncrement(base, now);
           return {
+            mealQuota: next,
             profile: {
               ...state.profile,
-              last_scan_date: todayStr,
-              last_scan_timestamp: nowIso,
-              daily_scans_count: currentCount + 1,
+              last_scan_date: next.day,
+              last_scan_timestamp: next.lastLogTimestamp,
+              daily_scans_count: next.count,
             },
           };
         });
       },
 
       getTodayScanCount: () => {
-        const todayStr = getTodayKey();
+        const now = new Date();
         const state = get();
-
-        // Security Check 1: Time-Travel Clock Roll-Back Detection
-        // If current clock is earlier than the last recorded scan timestamp, clock was rolled backwards
-        if (state.profile.last_scan_timestamp) {
-          const lastScanMs = new Date(state.profile.last_scan_timestamp).getTime();
-          const nowMs = Date.now();
-          if (!isNaN(lastScanMs) && nowMs < lastScanMs - 120_000) {
-            // Clock was rolled back into the past -> lock quota
-            return Math.max(1, state.profile.daily_scans_count || 1);
-          }
-        }
-
-        // Security Check 2: Future Date Tampering Detection
-        // If last recorded scan date is in the future compared to device today, device clock was altered
-        if (state.profile.last_scan_date && state.profile.last_scan_date > todayStr) {
-          return Math.max(1, state.profile.daily_scans_count || 1);
-        }
-
-        if (state.profile.last_scan_date !== todayStr) {
-          return 0;
-        }
-
-        // Loophole Fix: Do NOT reset scan count if todayMeals.length === 0.
-        // Scan quota must persist even if the user deletes logged meals or clears diary.
+        const quota = resolvedMealQuota(state.mealQuota, state.profile, now);
         const todayMeals = state.getTodayMeals();
         const todayAIScanMeals = todayMeals.filter(
           (m) => m && m.image_uri && m.image_uri.length > 20 && m.image_uri !== 'MOCK_IMAGE_DATA'
         );
-        return Math.max(state.profile.daily_scans_count || 0, todayAIScanMeals.length);
+        return displayedLogCount(quota, now, todayAIScanMeals.length);
+      },
+
+      isQuotaReady: () => isQuotaReady(),
+
+      canLogAnotherMeal: () => {
+        const state = get();
+        if (state.profile.is_pro_subscriber) return true;
+        if (!isQuotaReady()) return false;
+        return state.getTodayScanCount() < FREE_DAILY_LOG_LIMIT;
+      },
+
+      consumeFreeMealLog: () => {
+        const state = get();
+        if (state.profile.is_pro_subscriber) {
+          return { allowed: true, reason: 'pro' as const };
+        }
+        if (!isQuotaReady()) {
+          return { allowed: false, reason: 'pending' as const };
+        }
+        if (state.getTodayScanCount() >= FREE_DAILY_LOG_LIMIT) {
+          return { allowed: false, reason: 'limit' as const };
+        }
+        state.incrementDailyScan();
+        return { allowed: true, reason: 'free' as const };
+      },
+
+      markLaunchPaywallShown: () => {
+        const now = new Date();
+        set((state) => {
+          const base = resolvedMealQuota(state.mealQuota, state.profile, now);
+          return { mealQuota: withLaunchPrompt(base, localDayKey(now)) };
+        });
       },
 
       dismissWelcomeCard: () =>

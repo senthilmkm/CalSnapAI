@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import pricingConfig from '../../config/pricing.json';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Alert, AppState } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,12 +16,18 @@ import { WeightLogModal } from '../../components/WeightLogModal';
 import { OnboardingModal } from '../../components/OnboardingModal';
 import { AnimatedHourglass } from '../../components/AnimatedHourglass';
 import { MealRecord } from '../../types/nutrition';
+import { PaywallReason, shouldShowLaunchPaywall, shouldShowPaywallAfterOnboarding } from '../../services/freeTier';
 
 export default function TodayDashboardScreen() {
   const [paywallVisible, setPaywallVisible] = useState(false);
+  const [paywallReason, setPaywallReason] = useState<PaywallReason>('launch');
   const [quickAddVisible, setQuickAddVisible] = useState(false);
   const [weightLogVisible, setWeightLogVisible] = useState(false);
   const [onboardingModalVisible, setOnboardingModalVisible] = useState(false);
+  const [storageReady, setStorageReady] = useState(useAppStore.persist.hasHydrated());
+  const onboardingModeRef = useRef<'intro' | 'editor'>('intro');
+  const onboardingVisibleRef = useRef(false);
+  const launchPromptRef = useRef(false);
   const [showUtilities, setShowUtilities] = useState(false);
   const [expandedMealId, setExpandedMealId] = useState<string | null>(null);
   const [detailMeal, setDetailMeal] = useState<MealRecord | null>(null);
@@ -110,15 +116,64 @@ export default function TodayDashboardScreen() {
     return targetDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
+  const launchPaywallSeen = useAppStore((state) => state.mealQuota?.launchPaywallSeen === true);
+  onboardingVisibleRef.current = onboardingModalVisible;
+
+  const openPaywall = (reason: PaywallReason) => {
+    setPaywallReason(reason);
+    setPaywallVisible(true);
+  };
+
   useEffect(() => {
-    // Smooth first-launch trigger for un-onboarded users (Option A)
-    if (!profile.has_completed_onboarding && !profile.onboarding_skipped) {
-      const timer = setTimeout(() => {
-        setOnboardingModalVisible(true);
-      }, 400);
-      return () => clearTimeout(timer);
+    if (useAppStore.persist.hasHydrated()) {
+      setStorageReady(true);
     }
-  }, [profile.has_completed_onboarding, profile.onboarding_skipped]);
+    return useAppStore.persist.onFinishHydration(() => setStorageReady(true));
+  }, []);
+
+  useEffect(() => {
+    if (!storageReady) return;
+    if (profile.has_completed_onboarding || profile.onboarding_skipped) return;
+    const timer = setTimeout(() => {
+      onboardingModeRef.current = 'intro';
+      setOnboardingModalVisible(true);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [storageReady, profile.has_completed_onboarding, profile.onboarding_skipped]);
+
+  useEffect(() => {
+    if (!storageReady) return;
+    const onboardingPending = !profile.has_completed_onboarding && !profile.onboarding_skipped;
+    const shouldShow = shouldShowLaunchPaywall({
+      isPro: profile.is_pro_subscriber,
+      onboardingPending,
+      onboardingVisible: onboardingModalVisible,
+      alreadySeen: launchPaywallSeen,
+    });
+    if (!shouldShow || launchPromptRef.current) return;
+    const timer = setTimeout(() => {
+      const latest = useAppStore.getState();
+      const stillShow = shouldShowLaunchPaywall({
+        isPro: latest.profile.is_pro_subscriber,
+        onboardingPending: !latest.profile.has_completed_onboarding && !latest.profile.onboarding_skipped,
+        onboardingVisible: onboardingVisibleRef.current,
+        alreadySeen: latest.mealQuota?.launchPaywallSeen === true,
+      });
+      if (!stillShow || launchPromptRef.current) return;
+      launchPromptRef.current = true;
+      latest.markLaunchPaywallShown();
+      setPaywallReason('launch');
+      setPaywallVisible(true);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [
+    storageReady,
+    profile.has_completed_onboarding,
+    profile.onboarding_skipped,
+    profile.is_pro_subscriber,
+    onboardingModalVisible,
+    launchPaywallSeen,
+  ]);
 
   const formatRoadmapDate = (dateStr?: string) => {
     if (!dateStr) return '';
@@ -272,6 +327,7 @@ export default function TodayDashboardScreen() {
             style={styles.roadmapPromptBtn}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onboardingModeRef.current = 'editor';
               setOnboardingModalVisible(true);
             }}
             activeOpacity={0.85}
@@ -288,6 +344,7 @@ export default function TodayDashboardScreen() {
           style={styles.liveRoadmapCard}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            onboardingModeRef.current = 'editor';
             setOnboardingModalVisible(true);
           }}
           activeOpacity={0.9}
@@ -382,10 +439,13 @@ export default function TodayDashboardScreen() {
 
       {/* Pro Banner if Free Tier */}
       {!profile.is_pro_subscriber && (
-        <TouchableOpacity style={styles.proBanner} onPress={() => setPaywallVisible(true)} activeOpacity={0.9}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Zap size={16} color="#4F46E5" />
-            <Text style={styles.proBannerText}>{pricingConfig.banner_text}</Text>
+        <TouchableOpacity style={styles.proBanner} onPress={() => openPaywall('launch')} activeOpacity={0.9}>
+          <View style={{ flex: 1, paddingRight: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Zap size={16} color="#4F46E5" />
+              <Text style={styles.proBannerText}>{pricingConfig.banner_text}</Text>
+            </View>
+            <Text style={styles.proBannerSub}>{pricingConfig.free_tier.home_note}</Text>
           </View>
           <ChevronRight size={16} color="#4F46E5" />
         </TouchableOpacity>
@@ -399,7 +459,7 @@ export default function TodayDashboardScreen() {
             onPress={() => {
               if (!profile.is_pro_subscriber) {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setPaywallVisible(true);
+                openPaywall('feature');
               }
             }}
             activeOpacity={0.8}
@@ -566,7 +626,12 @@ export default function TodayDashboardScreen() {
             <TouchableOpacity
               style={styles.quickCard}
               onPress={() => {
+                if (!useAppStore.getState().isQuotaReady()) return;
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                if (!useAppStore.getState().canLogAnotherMeal()) {
+                  openPaywall('second_meal');
+                  return;
+                }
                 setQuickAddVisible(true);
               }}
               activeOpacity={0.8}
@@ -589,7 +654,7 @@ export default function TodayDashboardScreen() {
             onPress={() => {
               if (!profile.is_pro_subscriber) {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setPaywallVisible(true);
+                openPaywall('feature');
               }
             }}
             activeOpacity={profile.is_pro_subscriber ? 1 : 0.85}
@@ -784,7 +849,7 @@ export default function TodayDashboardScreen() {
                               multiplier={meal.portion_multiplier || 1.0}
                               mode={isBarcodeMeal ? 'servings' : 'plate'}
                               isPro={profile.is_pro_subscriber}
-                              onPressLock={() => setPaywallVisible(true)}
+                              onPressLock={() => openPaywall('feature')}
                               onChangeMultiplier={(mult) => {
                                 Haptics.selectionAsync();
                                 updateMealSliders(meal.id, mult, meal.estimated_oil_g || 0);
@@ -794,7 +859,7 @@ export default function TodayDashboardScreen() {
                               <OilSlider
                                 currentOilGrams={meal.estimated_oil_g || 0}
                                 isPro={profile.is_pro_subscriber}
-                                onPressLock={() => setPaywallVisible(true)}
+                                onPressLock={() => openPaywall('feature')}
                                 onChangeOil={(oil) => {
                                   Haptics.selectionAsync();
                                   updateMealSliders(meal.id, meal.portion_multiplier || 1.0, oil);
@@ -814,13 +879,20 @@ export default function TodayDashboardScreen() {
       </View>
 
       {/* Quick Add Modal */}
-      <QuickAddModal visible={quickAddVisible} onClose={() => setQuickAddVisible(false)} />
+      <QuickAddModal
+        visible={quickAddVisible}
+        onClose={() => setQuickAddVisible(false)}
+        onRequirePaywall={() => {
+          setQuickAddVisible(false);
+          setTimeout(() => openPaywall('second_meal'), 350);
+        }}
+      />
 
       {/* Scale Weight Log Modal */}
       <WeightLogModal visible={weightLogVisible} onClose={() => setWeightLogVisible(false)} />
 
       {/* Paywall Modal */}
-      <PaywallModal visible={paywallVisible} onClose={() => setPaywallVisible(false)} />
+      <PaywallModal visible={paywallVisible} reason={paywallReason} onClose={() => setPaywallVisible(false)} />
 
       {/* Meal Detail Sheet */}
       <MealDetailSheet meal={detailMeal} onClose={() => setDetailMeal(null)} />
@@ -831,10 +903,16 @@ export default function TodayDashboardScreen() {
         onClose={(completed?: boolean, isFirstTime?: boolean) => {
           setOnboardingModalVisible(false);
           const currentProfile = useAppStore.getState().profile;
-          if (completed && isFirstTime && !currentProfile.is_pro_subscriber) {
-            setTimeout(() => {
-              setPaywallVisible(true);
-            }, 350);
+          const showTrial = shouldShowPaywallAfterOnboarding({
+            isPro: currentProfile.is_pro_subscriber,
+            mode: onboardingModeRef.current,
+            completed,
+            isFirstTime,
+          });
+          if (showTrial) {
+            launchPromptRef.current = true;
+            useAppStore.getState().markLaunchPaywallShown();
+            setTimeout(() => openPaywall('launch'), 400);
           }
         }}
       />
@@ -922,6 +1000,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     color: '#4F46E5',
+    flexShrink: 1,
+  },
+  proBannerSub: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#4338CA',
+    marginTop: 4,
   },
   quickCardsRow: {
     flexDirection: 'row',

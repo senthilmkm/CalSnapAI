@@ -1,6 +1,6 @@
 {
   "currency": "USD",
-  "banner_text": "✨ CalSnap AI Pro — Full Access",
+  "banner_text": "CalSnap AI Pro — 7-day free trial",
   "paywall_headline": "Unlock CalSnap AI Pro",
   "paywall_subheadline": "Zero-friction food logging, weekly calorie banking, and interactive oil sliders.",
   "paywall_badge": "🔥 7-Day Free Trial Included on All Plans",
@@ -9,10 +9,17 @@
   "pdf_export_lock_notice": "🔒 Export PDF (Pro)",
   "free_tier": {
     "daily_snap_limit": 1,
-    "label": "Free Tier (1 AI Snap / Day)",
-    "banner_text": "🔒 Daily 1 Free AI Scan used. Tap to upgrade to Pro Unlimited!",
-    "badge_text_available": "1 Free Snap Left",
-    "badge_text_used": "0 Free Snaps Left"
+    "label": "Free Tier (1 meal log / day)",
+    "banner_text": "Today's free meal is used. Tap to start the 7-day trial and log the rest of today.",
+    "badge_text_available": "1 free meal left",
+    "badge_text_used": "Free meal used",
+    "home_note": "1 free meal a day, shared by a photo, barcode, quick add, or staple. The next meal starts a 7-day free trial.",
+    "limit_detail": "Free includes 1 meal log each day. That can be a photo snap, a barcode, a quick add, or a staple. Logging another meal today starts a 7-day free trial. You pay nothing today. Cancel anytime before the trial ends.",
+    "launch_headline": "One free meal a day",
+    "launch_subheadline": "Photo, barcode, quick add, and staples share that one daily meal. The 7-day trial logs the rest of your day.",
+    "second_meal_headline": "Today's free meal is used",
+    "second_meal_subheadline": "Your next photo, barcode, quick add, or staple starts the 7-day free trial. You will not be charged today.",
+    "feature_headline": "This unlocks with the 7-day trial"
   },
   "pro_tier": {
     "label": "CalSnap AI Pro",
@@ -36,7 +43,7 @@
     "recommended": true
   },
   "paywall_features": [
-    "Unlimited AI Photo & Voice Meal Snaps",
+    "Unlimited meals — photo, barcode, quick add, and staples",
     "Weekly Calorie Banking (No Guilt Flex Days)",
     "Interactive Oil & Sauce Calorie Sliders",
     "Glucose Impact & Energy Crash Predictor",

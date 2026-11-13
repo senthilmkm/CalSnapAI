@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,12 +17,11 @@ import { X, Check, Zap, PlusCircle } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../services/storage';
 import { MealRecord } from '../types/nutrition';
-import { PaywallModal } from './PaywallModal';
-
 interface QuickAddModalProps {
   visible: boolean;
   onClose: () => void;
   onMealLogged?: (meal: MealRecord) => void;
+  onRequirePaywall?: () => void;
 }
 
 const PRESET_CHIPS = [
@@ -32,7 +31,7 @@ const PRESET_CHIPS = [
   { label: '750 cal', cals: 750, p: 40, c: 80, f: 24 },
 ];
 
-export function QuickAddModal({ visible, onClose, onMealLogged }: QuickAddModalProps) {
+export function QuickAddModal({ visible, onClose, onMealLogged, onRequirePaywall }: QuickAddModalProps) {
   const [dishName, setDishName] = useState<string>('');
   const [caloriesInput, setCaloriesInput] = useState<string>('');
   const [proteinInput, setProteinInput] = useState<string>('');
@@ -40,6 +39,7 @@ export function QuickAddModal({ visible, onClose, onMealLogged }: QuickAddModalP
   const [fatInput, setFatInput] = useState<string>('');
 
   const addMeal = useAppStore((state) => state.addMeal);
+  const savingRef = useRef(false);
 
   const handleApplyPreset = (preset: typeof PRESET_CHIPS[0]) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -50,9 +50,20 @@ export function QuickAddModal({ visible, onClose, onMealLogged }: QuickAddModalP
   };
 
   const handleSaveQuickMeal = () => {
+    if (savingRef.current) return;
     const cals = parseInt(caloriesInput, 10);
     if (isNaN(cals) || cals <= 0) {
       Alert.alert('Invalid Calories', 'Please enter a valid calorie amount.');
+      return;
+    }
+
+    savingRef.current = true;
+    const gate = useAppStore.getState().consumeFreeMealLog();
+    if (!gate.allowed) {
+      savingRef.current = false;
+      if (gate.reason === 'pending') return;
+      onClose();
+      onRequirePaywall?.();
       return;
     }
 
@@ -97,6 +108,7 @@ export function QuickAddModal({ visible, onClose, onMealLogged }: QuickAddModalP
     setProteinInput('');
     setCarbsInput('');
     setFatInput('');
+    savingRef.current = false;
     onClose();
   };
 

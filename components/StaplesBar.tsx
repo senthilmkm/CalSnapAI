@@ -32,6 +32,8 @@ export function StaplesBar({ selectedDateStr }: StaplesBarProps) {
 
   const [modalVisible, setModalVisible] = useState(false);
   const [paywallVisible, setPaywallVisible] = useState(false);
+  const [paywallReason, setPaywallReason] = useState<'second_meal' | 'upgrade'>('second_meal');
+  const stapleTapLock = useRef(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [recentLoggedMealId, setRecentLoggedMealId] = useState<string | null>(null);
   const undoTimerRef = useRef<any>(null);
@@ -46,6 +48,19 @@ export function StaplesBar({ selectedDateStr }: StaplesBarProps) {
   const [mealType, setMealType] = useState<'Breakfast' | 'Lunch' | 'Dinner' | 'Snack'>('Breakfast');
 
   const handleTapStaple = (staple: StapleItem) => {
+    if (stapleTapLock.current) return;
+    const gate = useAppStore.getState().consumeFreeMealLog();
+    if (!gate.allowed) {
+      if (gate.reason === 'pending') return;
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      setPaywallReason('second_meal');
+      setPaywallVisible(true);
+      return;
+    }
+    stapleTapLock.current = true;
+    setTimeout(() => {
+      stapleTapLock.current = false;
+    }, 450);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const newMeal = logStapleAsMeal(staple, selectedDateStr);
     setRecentLoggedMealId(newMeal.id);
@@ -62,9 +77,13 @@ export function StaplesBar({ selectedDateStr }: StaplesBarProps) {
     if (recentLoggedMealId) {
       deleteMeal(recentLoggedMealId);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      setToastMessage(null);
+      const stillFree = !useAppStore.getState().profile.is_pro_subscriber;
+      setToastMessage(stillFree ? "Removed. Today's free meal stays used." : null);
       setRecentLoggedMealId(null);
       if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+      if (stillFree) {
+        undoTimerRef.current = setTimeout(() => setToastMessage(null), 2500);
+      }
     }
   };
 
@@ -116,7 +135,7 @@ export function StaplesBar({ selectedDateStr }: StaplesBarProps) {
         <View style={styles.toastBanner}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
             <Zap size={15} color="#10B981" />
-            <Text style={styles.toastText} numberOfLines={1}>{toastMessage}</Text>
+            <Text style={styles.toastText}>{toastMessage}</Text>
           </View>
           {recentLoggedMealId && (
             <TouchableOpacity onPress={handleUndoStaple} style={styles.undoBtn} activeOpacity={0.75}>
@@ -256,7 +275,7 @@ export function StaplesBar({ selectedDateStr }: StaplesBarProps) {
         </KeyboardAvoidingView>
       </Modal>
 
-      <PaywallModal visible={paywallVisible} onClose={() => setPaywallVisible(false)} />
+      <PaywallModal visible={paywallVisible} reason={paywallReason} onClose={() => setPaywallVisible(false)} />
     </View>
   );
 }
@@ -282,6 +301,8 @@ const styles = StyleSheet.create({
     color: '#065F46',
     fontWeight: '700',
     fontSize: 13,
+    flex: 1,
+    flexShrink: 1,
   },
   undoBtn: {
     backgroundColor: '#FFFFFF',

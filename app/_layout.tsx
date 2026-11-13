@@ -1,13 +1,35 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { Platform } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
 import Purchases from 'react-native-purchases';
 import { useAppStore } from '../services/storage';
+import { createSecureStoreAdapter, restoreMealQuota } from '../services/secureQuota';
+
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const REVENUECAT_PUBLIC_KEY = 'appl_ESiuNWKJXRZSzKvlrDYqeSWTfZp';
 
 export default function RootLayout() {
   const setProfile = useAppStore((state) => state.setProfile);
+  const [quotaReady, setQuotaReady] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    restoreMealQuota({
+      store: useAppStore,
+      adapter: createSecureStoreAdapter(),
+    })
+      .catch(() => {})
+      .finally(() => {
+        if (!active) return;
+        setQuotaReady(true);
+        SplashScreen.hideAsync().catch(() => {});
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     // Configure RevenueCat on Native iOS platform
@@ -31,6 +53,8 @@ export default function RootLayout() {
       }
     }
   }, []);
+
+  if (!quotaReady) return null;
 
   return (
     <Stack screenOptions={{ headerShown: false }}>

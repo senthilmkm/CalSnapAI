@@ -9,6 +9,7 @@ import { useAppStore } from '../../services/storage';
 import { scheduleMealReminders } from '../../services/notifications';
 import { FAQAccordion } from '../../components/FAQAccordion';
 import { PaywallModal } from '../../components/PaywallModal';
+import { getActivePlanLabel as formatActivePlanLabel } from '../../services/freeTier';
 import { MacroCalculatorModal } from '../../components/MacroCalculatorModal';
 import Constants from 'expo-constants';
 import pricingConfig from '../../config/pricing.json';
@@ -21,6 +22,7 @@ const PRESET_TIMES: Record<'breakfast' | 'lunch' | 'dinner', string[]> = {
 
 export default function SettingsScreen() {
   const [paywallVisible, setPaywallVisible] = useState(false);
+  const [paywallReason, setPaywallReason] = useState<'upgrade' | 'feature'>('upgrade');
   const [macroModalVisible, setMacroModalVisible] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
 
@@ -257,18 +259,7 @@ export default function SettingsScreen() {
     );
   };
 
-  const getActivePlanLabel = () => {
-    if (!profile.is_pro_subscriber) {
-      return pricingConfig.free_tier?.label || 'Free Tier (1 AI Snap / Day)';
-    }
-    if (profile.subscription_tier === 'annual') {
-      return `🎉 Active Plan: CalSnap AI Pro Annual (${pricingConfig.annual.display_price}/year)`;
-    }
-    if (profile.subscription_tier === 'monthly') {
-      return `🎉 Active Plan: CalSnap AI Pro Monthly (${pricingConfig.monthly.display_price}/month)`;
-    }
-    return `🎉 Active Plan: CalSnap AI Pro (Unlimited AI Scans)`;
-  };
+  const getActivePlanLabel = () => formatActivePlanLabel(profile, pricingConfig);
 
   const handleManageSubscription = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -291,6 +282,7 @@ export default function SettingsScreen() {
         [{ text: 'OK' }]
       );
     } else {
+      setPaywallReason('upgrade');
       setPaywallVisible(true);
     }
   };
@@ -526,6 +518,9 @@ export default function SettingsScreen() {
           <Text style={styles.sectionTitle}>Subscription Plan</Text>
         </View>
         <Text style={styles.planStatus}>{getActivePlanLabel()}</Text>
+        {!profile.is_pro_subscriber && (
+          <Text style={styles.planLimitNote}>{pricingConfig.free_tier.limit_detail}</Text>
+        )}
         <View style={styles.subBtnRow}>
           <TouchableOpacity style={styles.manageSubBtn} onPress={handleManageSubscription} activeOpacity={0.85}>
             <Text style={styles.manageSubText}>
@@ -667,13 +662,13 @@ export default function SettingsScreen() {
       {/* App Version & Build Footer */}
       <View style={styles.footerContainer}>
         <Text style={styles.footerAppText}>
-          CalSnap AI v{Constants.expoConfig?.version || Constants.nativeAppVersion || '1.0.0'}
+          CalSnap AI v{Constants.expoConfig?.version || Constants.nativeAppVersion || '1.1.0'}
           {(Constants.expoConfig?.ios?.buildNumber || Constants.nativeBuildVersion) ? ` (Build #${Constants.expoConfig?.ios?.buildNumber || Constants.nativeBuildVersion})` : ''}
         </Text>
       </View>
 
       {/* Paywall Modal */}
-      <PaywallModal visible={paywallVisible} onClose={() => setPaywallVisible(false)} />
+      <PaywallModal visible={paywallVisible} reason={paywallReason} onClose={() => setPaywallVisible(false)} />
 
       {/* Macro Calculator & Goal Editor Modal */}
       <MacroCalculatorModal visible={macroModalVisible} onClose={() => setMacroModalVisible(false)} />
@@ -891,6 +886,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#334155',
     fontWeight: '600',
+    marginBottom: 8,
+  },
+  planLimitNote: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#78350F',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 12,
+    padding: 12,
     marginBottom: 12,
   },
   subBtnRow: {

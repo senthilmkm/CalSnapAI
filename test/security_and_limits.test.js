@@ -1,4 +1,13 @@
 const assert = require('assert');
+const pricing = require('../config/pricing.json');
+const {
+  getActivePlanLabel,
+  sealQuota,
+  effectiveLogCount,
+  profileToQuota,
+  stricterQuota,
+  shouldShowPaywallAfterOnboarding,
+} = require('../services/freeTier');
 
 /**
  * CalSnap AI Security & Free-Tier Limit Verification Suite
@@ -165,11 +174,22 @@ signInWithApple('test.user@privaterelay.appleid.com');
 addMeal({ id: 'm-99', dish_name: 'Grilled Salmon' });
 assert.strictEqual(state.profile.is_guest, false);
 assert.strictEqual(state.meals.length, 1);
+const quotaBeforeDelete = {
+  day: state.profile.last_scan_date,
+  count: state.profile.daily_scans_count,
+  lastLogTimestamp: state.profile.last_scan_timestamp || '',
+  lastLaunchPaywallDay: '',
+};
 deleteAccount();
+state.mealQuota = sealQuota(quotaBeforeDelete, state.profile, new Date());
 assert.strictEqual(state.profile.is_guest, true, 'User must be reset to anonymous guest');
 assert.strictEqual(state.profile.email, undefined, 'Email must be cleared');
 assert.strictEqual(state.meals.length, 0, 'All meals must be purged');
 assert.strictEqual(state.profile.streak_days, 0, 'Streak must be reset');
+assert.ok(
+  effectiveLogCount(stricterQuota(state.mealQuota, profileToQuota(state.profile), new Date()), new Date()) >= 1,
+  'Deleting the account must not restore today\'s free meal'
+);
 console.log('✅ PASSED: Account deletion fully purges account and personal data.\n');
 
 // Test 9: 24h Reminder Time Validation Regex
@@ -183,16 +203,10 @@ console.log('✅ PASSED: 24h reminder time regex properly accepts valid and reje
 
 // Test 10: Clear Subscription Plan Tier Labeling
 console.log('Test 10: Subscription tier formats clearly distinguish Annual vs Monthly vs Free');
-function getActivePlanLabel(profile) {
-  if (!profile.is_pro_subscriber) return 'Free Tier (1 AI Snap / Day)';
-  if (profile.subscription_tier === 'annual') return '🎉 Active Plan: CalSnap AI Pro Annual ($49.99/year)';
-  if (profile.subscription_tier === 'monthly') return '🎉 Active Plan: CalSnap AI Pro Monthly ($9.99/month)';
-  return '🎉 Active Plan: CalSnap AI Pro (Unlimited AI Scans)';
-}
-assert.strictEqual(getActivePlanLabel({ is_pro_subscriber: false }), 'Free Tier (1 AI Snap / Day)');
-assert.strictEqual(getActivePlanLabel({ is_pro_subscriber: true, subscription_tier: 'annual' }), '🎉 Active Plan: CalSnap AI Pro Annual ($49.99/year)');
-assert.strictEqual(getActivePlanLabel({ is_pro_subscriber: true, subscription_tier: 'monthly' }), '🎉 Active Plan: CalSnap AI Pro Monthly ($9.99/month)');
-assert.strictEqual(getActivePlanLabel({ is_pro_subscriber: true }), '🎉 Active Plan: CalSnap AI Pro (Unlimited AI Scans)');
+assert.strictEqual(getActivePlanLabel({ is_pro_subscriber: false }, pricing), pricing.free_tier.label);
+assert.strictEqual(getActivePlanLabel({ is_pro_subscriber: true, subscription_tier: 'annual' }, pricing), `🎉 Active Plan: CalSnap AI Pro Annual (${pricing.annual.display_price}/year)`);
+assert.strictEqual(getActivePlanLabel({ is_pro_subscriber: true, subscription_tier: 'monthly' }, pricing), `🎉 Active Plan: CalSnap AI Pro Monthly (${pricing.monthly.display_price}/month)`);
+assert.strictEqual(getActivePlanLabel({ is_pro_subscriber: true }, pricing), '🎉 Active Plan: CalSnap AI Pro (Unlimited AI Scans)');
 console.log('✅ PASSED: Subscription tier labels clearly show exact plan with zero ambiguity.\n');
 
 // Test 11: Pro Upgrade Banner Visibility strictly respects is_pro_subscriber entitlement
@@ -239,35 +253,32 @@ deleteMeal(logged.id);
 assert.strictEqual(state.meals.length, initialMealCount, 'Accidental staple must be completely purged on undo');
 console.log('✅ PASSED: 1-Tap Staples Undo reliably purges the meal from journal.\n');
 
-console.log('Test 14: Onboarding completion triggers Paywall exclusively for first-time Free-tier users');
-function shouldTriggerPaywallAfterOnboarding({ completed, isFirstTime, isProSubscriber }) {
-  return Boolean(completed && isFirstTime && !isProSubscriber);
-}
+console.log('Test 14: Onboarding completion triggers Paywall for first-run free users, including skip');
 
 // Case A: First-time free user completes onboarding -> MUST trigger paywall
 assert.strictEqual(
-  shouldTriggerPaywallAfterOnboarding({ completed: true, isFirstTime: true, isProSubscriber: false }),
+  shouldShowPaywallAfterOnboarding({ completed: true, isFirstTime: true, isPro: false, mode: 'intro' }),
   true,
   'First-time free user completing onboarding must be shown 7-day trial paywall'
 );
 
-// Case B: User skips onboarding -> MUST NOT trigger paywall
+// Case B: User skips the first-run onboarding -> MUST trigger paywall
 assert.strictEqual(
-  shouldTriggerPaywallAfterOnboarding({ completed: false, isFirstTime: false, isProSubscriber: false }),
-  false,
-  'Skipping onboarding must never trigger paywall'
+  shouldShowPaywallAfterOnboarding({ completed: false, isFirstTime: false, isPro: false, mode: 'intro' }),
+  true,
+  'Skipping first-run onboarding must show the 7-day trial paywall'
 );
 
 // Case C: Existing user editing their goal -> MUST NOT trigger paywall
 assert.strictEqual(
-  shouldTriggerPaywallAfterOnboarding({ completed: true, isFirstTime: false, isProSubscriber: false }),
+  shouldShowPaywallAfterOnboarding({ completed: true, isFirstTime: false, isPro: false, mode: 'editor' }),
   false,
   'Existing user adjusting roadmap must not be interrupted by paywall'
 );
 
 // Case D: Active Pro subscriber completing onboarding -> MUST NOT trigger paywall
 assert.strictEqual(
-  shouldTriggerPaywallAfterOnboarding({ completed: true, isFirstTime: true, isProSubscriber: true }),
+  shouldShowPaywallAfterOnboarding({ completed: true, isFirstTime: true, isPro: true, mode: 'intro' }),
   false,
   'Active Pro subscriber must never be shown the paywall'
 );

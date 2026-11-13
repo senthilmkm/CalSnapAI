@@ -42,6 +42,7 @@ export default function SnapScreen() {
   const [customNoteDraft, setCustomNoteDraft] = useState('');
   const [currentMealId, setCurrentMealId] = useState<string | null>(null);
   const [paywallVisible, setPaywallVisible] = useState(false);
+  const [paywallReason, setPaywallReason] = useState<'second_meal' | 'feature' | 'upgrade'>('second_meal');
   const [barcodeModalVisible, setBarcodeModalVisible] = useState(false);
   const [aiConsentModalVisible, setAiConsentModalVisible] = useState(false);
   const [pendingAIAction, setPendingAIAction] = useState<'camera' | 'gallery' | null>(null);
@@ -125,7 +126,6 @@ export default function SnapScreen() {
   const addMeal = useAppStore((state) => state.addMeal);
   const updateMealSliders = useAppStore((state) => state.updateMealSliders);
   const getTodayScanCount = useAppStore((state) => state.getTodayScanCount);
-  const incrementDailyScan = useAppStore((state) => state.incrementDailyScan);
   const meals = useAppStore((state) => state.meals);
 
   const activeMeal = meals.find((m) => m.id === currentMealId);
@@ -147,8 +147,10 @@ export default function SnapScreen() {
 
   // Paywall Gate Verification
   const verifyPaywallGate = (): boolean => {
-    if (isFreeTier && todaySnapsCount >= FREE_DAILY_SNAP_LIMIT) {
+    if (!useAppStore.getState().isQuotaReady()) return false;
+    if (!useAppStore.getState().canLogAnotherMeal()) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      setPaywallReason('second_meal');
       setPaywallVisible(true);
       return false;
     }
@@ -322,6 +324,15 @@ export default function SnapScreen() {
       const finalFatG = Math.max(0, result.total_fat_g - oilDiffGrams);
       const finalCalories = Math.max(0, result.total_calories - oilDiffCals);
       
+      const gate = useAppStore.getState().consumeFreeMealLog();
+      if (!gate.allowed) {
+        if (gate.reason === 'pending') return;
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        setPaywallReason('second_meal');
+        setPaywallVisible(true);
+        return;
+      }
+
       const newMeal = addMeal({
         dish_name: result.dish_name,
         meal_type: result.meal_type || 'Lunch',
@@ -341,13 +352,13 @@ export default function SnapScreen() {
       });
 
       setCurrentMealId(newMeal.id);
-      incrementDailyScan();
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await sendInstantAsyncMealNotification(result.dish_name, result.total_calories);
 
     } catch (err: any) {
       if (err?.message === 'QUOTA_EXCEEDED') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        setPaywallReason('second_meal');
         setPaywallVisible(true);
         return;
       }
@@ -418,7 +429,7 @@ export default function SnapScreen() {
         {/* Header */}
       <View style={styles.header}>
         <Text style={styles.screenTitle}>Snap & Log</Text>
-        <TouchableOpacity style={styles.quotaBadge} onPress={() => isFreeTier && setPaywallVisible(true)}>
+        <TouchableOpacity style={styles.quotaBadge} onPress={() => { if (isFreeTier) { setPaywallReason('upgrade'); setPaywallVisible(true); } }}>
           <Sparkles size={14} color={isFreeTier ? (snapsRemaining > 0 ? '#10B981' : '#EF4444') : '#10B981'} />
           <Text style={[styles.quotaText, { color: isFreeTier ? (snapsRemaining > 0 ? '#065F46' : '#DC2626') : '#065F46' }]}>
             {isFreeTier
@@ -432,7 +443,7 @@ export default function SnapScreen() {
 
       {/* Free Tier Gate Warning Banner */}
       {isFreeTier && snapsRemaining === 0 && (
-        <TouchableOpacity style={styles.gateBanner} onPress={() => setPaywallVisible(true)} activeOpacity={0.9}>
+        <TouchableOpacity style={styles.gateBanner} onPress={() => { setPaywallReason('second_meal'); setPaywallVisible(true); }} activeOpacity={0.9}>
           <AlertCircle size={18} color="#EF4444" />
           <Text style={styles.gateBannerText}>
             {pricingConfig.free_tier?.banner_text || '🔒 Daily 1 Free AI Scan used. Tap to upgrade to Pro Unlimited!'}
@@ -551,13 +562,26 @@ export default function SnapScreen() {
             <Text style={styles.controlBtnLabel}>Photo Library</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.barcodeBtn} onPress={() => setBarcodeModalVisible(true)} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={styles.barcodeBtn}
+            onPress={() => {
+              if (!useAppStore.getState().isQuotaReady()) return;
+              if (!useAppStore.getState().canLogAnotherMeal()) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                setPaywallReason('second_meal');
+                setPaywallVisible(true);
+                return;
+              }
+              setBarcodeModalVisible(true);
+            }}
+            activeOpacity={0.85}
+          >
             <Barcode size={18} color="#4F46E5" />
             <Text style={styles.barcodeBtnLabel}>Scan Barcode</Text>
           </TouchableOpacity>
 
           {isFreeTier && (
-            <TouchableOpacity style={styles.proBtn} onPress={() => setPaywallVisible(true)} activeOpacity={0.85}>
+            <TouchableOpacity style={styles.proBtn} onPress={() => { setPaywallReason('upgrade'); setPaywallVisible(true); }} activeOpacity={0.85}>
               <Zap size={18} color="#D97706" />
               <Text style={styles.proBtnLabel}>Pro</Text>
             </TouchableOpacity>
@@ -644,7 +668,7 @@ export default function SnapScreen() {
               multiplier={activeMeal.portion_multiplier}
               mode={isBarcodeMeal ? 'servings' : 'plate'}
               isPro={profile.is_pro_subscriber}
-              onPressLock={() => setPaywallVisible(true)}
+              onPressLock={() => { setPaywallReason('feature'); setPaywallVisible(true); }}
               onChangeMultiplier={(val: number) => updateMealSliders(activeMeal.id, val, activeMeal.estimated_oil_g)}
             />
 
@@ -653,7 +677,7 @@ export default function SnapScreen() {
               <OilSlider
                 currentOilGrams={activeMeal.estimated_oil_g}
                 isPro={profile.is_pro_subscriber}
-                onPressLock={() => setPaywallVisible(true)}
+                onPressLock={() => { setPaywallReason('feature'); setPaywallVisible(true); }}
                 onChangeOil={(val: number) => updateMealSliders(activeMeal.id, activeMeal.portion_multiplier, val)}
               />
             )}
@@ -692,7 +716,7 @@ export default function SnapScreen() {
       </ScrollView>
 
       {/* StoreKit 2 Paywall Modal */}
-      <PaywallModal visible={paywallVisible} onClose={() => setPaywallVisible(false)} />
+      <PaywallModal visible={paywallVisible} reason={paywallReason} onClose={() => setPaywallVisible(false)} />
 
       {/* Real-time OpenFoodFacts Barcode Scanner Modal */}
       <BarcodeScannerModal
@@ -783,6 +807,8 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '900',
     color: '#0F172A',
+    flexShrink: 1,
+    marginRight: 8,
   },
   quotaBadge: {
     flexDirection: 'row',
@@ -792,10 +818,13 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
     gap: 4,
+    flexShrink: 1,
+    maxWidth: '58%',
   },
   quotaText: {
     fontSize: 12,
     fontWeight: '800',
+    flexShrink: 1,
   },
   gateBanner: {
     flexDirection: 'row',

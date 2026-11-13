@@ -5,7 +5,7 @@ module.exports = ({ config }) => {
     ...config,
     name: "CalSnap AI",
     slug: "calsnap-ai",
-    version: "1.0.0",
+    version: "1.1.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     scheme: "calsnap",
@@ -49,7 +49,13 @@ module.exports = ({ config }) => {
       "expo-camera",
       "expo-image-picker",
       "expo-notifications",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      [
+        "expo-secure-store",
+        {
+          faceIDPermission: "CalSnap AI keeps your daily meal log in secure device storage."
+        }
+      ]
     ],
     experiments: {
       typedRoutes: true
