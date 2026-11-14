@@ -81,17 +81,78 @@ test('meal prompt and generation config keep the fields a snap shows', () => {
   assert.match(prompt, /Voice note: "dal"/);
   assert.match(prompt, /Cuisine: "Tamil"/);
   assert.match(prompt, /glucose_impact_score/);
+  assert.match(prompt, /never inside item fat/);
+  assert.match(prompt, /without the cooking oil/);
   assert.match(prompt, /ai_tip/);
   assert.match(buildMealPrompt('   ', ''), /Voice note: "None"/);
   assert.match(buildMealPrompt('   ', ''), /Cuisine: "Standard"/);
   assert.match(buildMealPrompt(null, null), /Cuisine: "Standard"/);
 
   const config = generationConfig({ type: 'object' });
-  assert.equal(config.thinkingConfig.thinkingBudget, 0);
+  assert.equal(config.thinkingConfig.thinkingLevel, 'minimal');
   assert.equal(config.maxOutputTokens, 2048);
   assert.equal(config.responseSchema.type, 'object');
   assert.equal(MODEL_NAME, 'gemini-3.5-flash-lite');
   assert.equal(ANALYSIS_BUDGET_MS, 18000);
+});
+
+test('a rejected thinking setting is sent once, then the same model is asked plainly', async () => {
+  const seen = [];
+  const meal = await analyzeMealPhoto({
+    budgetMs: 5000,
+    now: () => 0,
+    contents: ['prompt'],
+    config: generationConfig({ type: 'object' }),
+    generate: async (request) => {
+      seen.push(request.config.thinkingConfig || null);
+      if (request.config.thinkingConfig) {
+        const error = new Error('Request contains an invalid argument.');
+        error.status = 400;
+        throw error;
+      }
+      return goodResponse();
+    },
+    parse: JSON.parse,
+    repair: (value) => value,
+    isImplausible: () => false,
+  });
+  assert.equal(meal.dish_name, 'Rice and dal');
+  assert.deepEqual(seen, [{ thinkingLevel: 'minimal' }, null]);
+
+  const messageOnly = [];
+  await analyzeMealPhoto({
+    budgetMs: 5000,
+    now: () => 0,
+    config: { thinkingConfig: { thinkingLevel: 'minimal' } },
+    generate: async (request) => {
+      messageOnly.push(Boolean(request.config.thinkingConfig));
+      if (messageOnly.length === 1) throw new Error('invalid argument');
+      return goodResponse();
+    },
+    parse: JSON.parse,
+    repair: (value) => value,
+    isImplausible: () => false,
+  });
+  assert.deepEqual(messageOnly, [true, false]);
+
+  const kept = [];
+  await assert.rejects(
+    analyzeMealPhoto({
+      budgetMs: 5000,
+      now: () => 0,
+      maxAttempts: 1,
+      config: { thinkingConfig: { thinkingLevel: 'minimal' } },
+      generate: async (request) => {
+        kept.push(Boolean(request.config.thinkingConfig));
+        throw new Error('model busy');
+      },
+      parse: JSON.parse,
+      repair: (value) => value,
+      isImplausible: () => false,
+    }),
+    /model busy/
+  );
+  assert.deepEqual(kept, [true]);
 });
 
 test('analysis accepts the first complete meal and retries a bad reply once', async () => {

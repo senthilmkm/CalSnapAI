@@ -10,8 +10,9 @@ function buildMealPrompt(voice, preset) {
     "You are CalSnap AI. Identify the meal in this photo and estimate an adult serving.",
     `Voice note: "${note}". Cuisine: "${style}".`,
     "List each visible food with a realistic gram weight.",
-    "Raw fruit, salad, vegetables, boiled eggs, drinks, and packaged snacks have 0g oil. Cooked dishes include hidden oil.",
-    "total_calories must match protein_g*4 + carbs_g*4 + fat_g*9.",
+    "Item calories and fat are the food only. Put cooking oil only in estimated_oil_g, never inside item fat or item calories.",
+    "Raw fruit, salad, vegetables, boiled eggs, drinks, and packaged snacks have 0g oil. Cooked dishes put hidden oil in estimated_oil_g.",
+    "total_calories must match protein_g*4 + carbs_g*4 + fat_g*9 for the food, without the cooking oil.",
     "glucose_impact_score is LOW, MEDIUM, or HIGH.",
     "energy_crash_risk is VERY_LOW, LOW, MEDIUM, or HIGH.",
     "ai_tip is one short sentence about this meal.",
@@ -25,7 +26,7 @@ function generationConfig(schema) {
     maxOutputTokens: 2048,
     responseMimeType: "application/json",
     responseSchema: schema,
-    thinkingConfig: { thinkingBudget: 0 },
+    thinkingConfig: { thinkingLevel: "minimal" },
   };
 }
 
@@ -33,6 +34,11 @@ function timeoutError() {
   const error = new Error("Meal analysis timed out");
   error.code = "ANALYSIS_TIMEOUT";
   return error;
+}
+
+function isRejectedConfig(error) {
+  if (error.status === 400) return true;
+  return /invalid argument/i.test(String(error.message || ""));
 }
 
 function withDeadline(work, ms) {
@@ -49,6 +55,7 @@ async function analyzeMealPhoto(options) {
   const maxAttempts = Number.isFinite(options.maxAttempts) ? options.maxAttempts : MAX_ATTEMPTS;
   const startedAt = now();
   let lastError = null;
+  let requestConfig = options.config;
 
   if (maxAttempts < 1) {
     throw new Error("Meal analysis failed");
@@ -65,7 +72,7 @@ async function analyzeMealPhoto(options) {
         options.generate({
           model: MODEL_NAME,
           contents: options.contents,
-          config: options.config,
+          config: requestConfig,
         }),
         remaining
       );
@@ -93,6 +100,10 @@ async function analyzeMealPhoto(options) {
       lastError = err || new Error("Meal analysis failed");
       if (lastError.code === "ANALYSIS_TIMEOUT") {
         throw lastError;
+      }
+      if (requestConfig && requestConfig.thinkingConfig && isRejectedConfig(lastError)) {
+        const { thinkingConfig, ...plainConfig } = requestConfig;
+        requestConfig = plainConfig;
       }
     }
   }

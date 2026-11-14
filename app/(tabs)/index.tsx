@@ -17,6 +17,7 @@ import { OnboardingModal } from '../../components/OnboardingModal';
 import { AnimatedHourglass } from '../../components/AnimatedHourglass';
 import { MealRecord } from '../../types/nutrition';
 import { PaywallReason, shouldShowLaunchPaywall, shouldShowPaywallAfterOnboarding } from '../../services/freeTier';
+import { describeDayStability } from '../../services/dayStability';
 
 export default function TodayDashboardScreen() {
   const [paywallVisible, setPaywallVisible] = useState(false);
@@ -105,6 +106,7 @@ export default function TodayDashboardScreen() {
   const selectedDateStr = getTargetDateStr(selectedDateOffset);
   const todayWater = getTodayWater(selectedDateStr);
   const todayMeals = getMealsForDate(selectedDateStr);
+  const dayStability = describeDayStability(todayMeals);
   const totals = getTotalsForDate(selectedDateStr);
   const bankedCalories = getWeeklyBankedCalories();
 
@@ -660,8 +662,8 @@ export default function TodayDashboardScreen() {
             activeOpacity={profile.is_pro_subscriber ? 1 : 0.85}
           >
             <View style={styles.glucoseHeader}>
-              <ShieldCheck size={18} color={!profile.is_pro_subscriber ? '#6366F1' : totals.protein >= totals.carbs * 0.4 ? '#10B981' : '#F59E0B'} />
-              <Text style={[styles.glucoseTitle, { color: !profile.is_pro_subscriber ? '#4F46E5' : totals.protein >= totals.carbs * 0.4 ? '#065F46' : '#92400E' }]}>
+              <ShieldCheck size={18} color={!profile.is_pro_subscriber ? '#6366F1' : dayStability.tone === 'caution' ? '#F59E0B' : '#10B981'} />
+              <Text style={[styles.glucoseTitle, { color: !profile.is_pro_subscriber ? '#4F46E5' : dayStability.tone === 'caution' ? '#92400E' : '#065F46' }]}>
                 Glucose & Energy Stability {!profile.is_pro_subscriber && '🔒'}
               </Text>
             </View>
@@ -670,12 +672,8 @@ export default function TodayDashboardScreen() {
                 {pricingConfig.glucose_lock_notice || '🔒 Upgrade to Pro to unlock AI glucose impact & energy crash predictions.'}
               </Text>
             ) : (
-              <Text style={[styles.glucoseText, { color: totals.protein >= totals.carbs * 0.4 ? '#047857' : '#B45309' }]}>
-                {todayMeals.length === 0
-                  ? '⚪ Log your first meal to calculate real-time energy crash risks & glucose stability.'
-                  : totals.protein >= totals.carbs * 0.4
-                  ? '⚡ Stable Energy Forecast: High protein ratio prevents post-meal glucose spikes and afternoon fatigue!'
-                  : '⚠️ Carb Spike Alert: Consider adding lean protein to smooth out energy levels and avoid 3:00 PM crashes.'}
+              <Text style={[styles.glucoseText, { color: dayStability.tone === 'caution' ? '#B45309' : '#047857' }]}>
+                {dayStability.text}
               </Text>
             )}
           </TouchableOpacity>

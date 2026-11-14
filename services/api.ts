@@ -4,6 +4,7 @@ import { MealRecord } from '../types/nutrition';
 import { useAppStore } from './storage';
 import pricingConfig from '../config/pricing.json';
 import { interpretMealResponse, SNAP_WAIT_MS } from './mealRead';
+import { cookingOilGrams, totalsWithOil } from './oilMath';
 
 const GCLOUD_FUNCTION_URL = 'https://us-central1-calsnap-ai-app.cloudfunctions.net/analyzeMeal';
 const CALSNAP_APP_SECRET = 'calsnap_sec_9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e';
@@ -165,25 +166,18 @@ export async function analyzeMealImage(params: AnalyzeMealParams): Promise<Omit<
 
     const meal = outcome.data;
     const { items, baseCals, baseProtein, baseCarbs, baseFat } = resolveBaseNutrition(meal);
-
-    let oilGrams = Number(meal.estimated_oil_g) || 0;
-    if (params.cookingStyle === 'raw') oilGrams = 0;
-    else if (params.cookingStyle === 'heavy') oilGrams = Math.max(oilGrams, 15);
-    else if (params.cookingStyle === 'light' && oilGrams > 0) oilGrams = 5;
-
-    const totalCals = baseCals + (oilGrams * 9);
-    const totalFat = baseFat + oilGrams;
+    const plated = totalsWithOil(baseCals, baseFat, cookingOilGrams(meal.estimated_oil_g, params.cookingStyle));
 
     return {
       dish_name: meal.dish_name || 'Identified Meal',
       meal_type: getMealTypeByHour(),
       items: items,
-      estimated_oil_g: oilGrams,
+      estimated_oil_g: plated.oilGrams,
       portion_multiplier: 1.0,
-      total_calories: totalCals,
+      total_calories: plated.totalCalories,
       total_protein_g: Number(baseProtein.toFixed(1)),
       total_carbs_g: Number(baseCarbs.toFixed(1)),
-      total_fat_g: Number(totalFat.toFixed(1)),
+      total_fat_g: plated.totalFat,
       glucose_impact_score: meal.glucose_impact_score || 'LOW',
       energy_crash_risk: meal.energy_crash_risk || 'VERY_LOW',
       ai_tip: meal.ai_tip || 'Balanced nutrition profile.',

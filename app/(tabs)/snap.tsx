@@ -23,6 +23,7 @@ import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import * as Haptics from 'expo-haptics';
 import { useAppStore } from '../../services/storage';
 import { analyzeMealImage, parseNaturalLanguageMeal } from '../../services/api';
+import { pillForOil, totalsWithOil } from '../../services/oilMath';
 import { OilSlider } from '../../components/OilSlider';
 import { PortionSlider } from '../../components/PortionSlider';
 import { PaywallModal } from '../../components/PaywallModal';
@@ -131,6 +132,7 @@ export default function SnapScreen() {
   const meals = useAppStore((state) => state.meals);
 
   const activeMeal = meals.find((m) => m.id === currentMealId);
+  const oilPill = pillForOil(activeMeal?.estimated_oil_g);
   const isBarcodeMeal = !!activeMeal && (activeMeal.source === 'barcode' || (!activeMeal.source && (activeMeal.ai_tip?.includes('OpenFoodFacts') || activeMeal.ai_tip?.includes('Smart Fallback'))));
   const todaySnapsCount = getTodayScanCount();
   const isFreeTier = !profile.is_pro_subscriber;
@@ -329,11 +331,9 @@ export default function SnapScreen() {
         setCookingStyle('raw');
       }
 
-      // Recalculate fat and calories if oil was zeroed out for raw food
-      const oilDiffGrams = result.estimated_oil_g - finalOilGrams;
-      const oilDiffCals = oilDiffGrams * 9;
-      const finalFatG = Math.max(0, result.total_fat_g - oilDiffGrams);
-      const finalCalories = Math.max(0, result.total_calories - oilDiffCals);
+      const foodCalories = (result.items || []).reduce((sum, item) => sum + (Number(item.calories) || 0), 0);
+      const foodFat = (result.items || []).reduce((sum, item) => sum + (Number(item.fat_g) || 0), 0);
+      const plated = totalsWithOil(foodCalories, foodFat, finalOilGrams);
       
       const gate = useAppStore.getState().consumeFreeMealLog();
       if (!gate.allowed) {
@@ -349,12 +349,12 @@ export default function SnapScreen() {
         meal_type: result.meal_type || 'Lunch',
         source: 'camera',
         items: result.items,
-        estimated_oil_g: finalOilGrams,
+        estimated_oil_g: plated.oilGrams,
         portion_multiplier: 1.0,
-        total_calories: finalCalories,
+        total_calories: plated.totalCalories,
         total_protein_g: result.total_protein_g,
         total_carbs_g: result.total_carbs_g,
-        total_fat_g: finalFatG,
+        total_fat_g: plated.totalFat,
         glucose_impact_score: result.glucose_impact_score,
         energy_crash_risk: result.energy_crash_risk,
         ai_tip: result.ai_tip,
@@ -364,7 +364,7 @@ export default function SnapScreen() {
 
       setCurrentMealId(newMeal.id);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await sendInstantAsyncMealNotification(result.dish_name, result.total_calories);
+      await sendInstantAsyncMealNotification(result.dish_name, plated.totalCalories);
 
     } catch (err: any) {
       if (err?.message === 'QUOTA_EXCEEDED') {
@@ -656,7 +656,7 @@ export default function SnapScreen() {
             {!isBarcodeMeal && (
               <View style={[styles.cookingStyleRow, { marginTop: 10, marginBottom: 8 }]}>
                 <TouchableOpacity
-                  style={[styles.stylePill, cookingStyle === 'raw' && styles.stylePillActiveRaw]}
+                  style={[styles.stylePill, oilPill === 'raw' && styles.stylePillActiveRaw]}
                   onPress={() => {
                     setCookingStyle('raw');
                     updateMealSliders(activeMeal.id, activeMeal.portion_multiplier, 0);
@@ -664,12 +664,12 @@ export default function SnapScreen() {
                   }}
                   activeOpacity={0.85}
                 >
-                  <Text style={[styles.stylePillText, cookingStyle === 'raw' && styles.stylePillTextActive]}>
+                  <Text style={[styles.stylePillText, oilPill === 'raw' && styles.stylePillTextActive]}>
                     🥗 Raw / Fresh (0g)
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.stylePill, cookingStyle === 'light' && styles.stylePillActiveLight]}
+                  style={[styles.stylePill, oilPill === 'light' && styles.stylePillActiveLight]}
                   onPress={() => {
                     setCookingStyle('light');
                     updateMealSliders(activeMeal.id, activeMeal.portion_multiplier, 5);
@@ -677,12 +677,12 @@ export default function SnapScreen() {
                   }}
                   activeOpacity={0.85}
                 >
-                  <Text style={[styles.stylePillText, cookingStyle === 'light' && styles.stylePillTextActive]}>
+                  <Text style={[styles.stylePillText, oilPill === 'light' && styles.stylePillTextActive]}>
                     🍳 Light Cooked (+5g)
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.stylePill, cookingStyle === 'heavy' && styles.stylePillActiveHeavy]}
+                  style={[styles.stylePill, oilPill === 'heavy' && styles.stylePillActiveHeavy]}
                   onPress={() => {
                     setCookingStyle('heavy');
                     updateMealSliders(activeMeal.id, activeMeal.portion_multiplier, 15);
@@ -690,7 +690,7 @@ export default function SnapScreen() {
                   }}
                   activeOpacity={0.85}
                 >
-                  <Text style={[styles.stylePillText, cookingStyle === 'heavy' && styles.stylePillTextActive]}>
+                  <Text style={[styles.stylePillText, oilPill === 'heavy' && styles.stylePillTextActive]}>
                     🧈 Homestyle (+15g)
                   </Text>
                 </TouchableOpacity>
