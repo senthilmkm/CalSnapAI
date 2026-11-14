@@ -373,7 +373,7 @@ export default function SnapScreen() {
         setPaywallVisible(true);
         return;
       }
-      Alert.alert('Analysis Warning', 'Meal logged with standard fallback nutrition estimation.');
+      Alert.alert("Couldn't read that photo", 'Try again.');
     } finally {
       setAnalyzing(false);
     }

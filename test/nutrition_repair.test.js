@@ -75,13 +75,15 @@ test('allows legitimate zero-calorie beverages without flagging implausible', ()
   assert.equal(water.total_calories, 0);
 });
 
-test('backend analyzeMeal module loads cleanly with @google/genai and gemini-3.8-flash', () => {
+test('backend analyzeMeal module loads cleanly with one fast Gemini model', () => {
   const fs = require('node:fs');
   const path = require('node:path');
-  const src = fs.readFileSync(path.join(__dirname, '../backend/analyzeMeal/index.js'), 'utf8');
-  assert.match(src, /@google\/genai/);
-  assert.match(src, /gemini-3\.8-flash/);
+  const src = fs.readFileSync(path.join(__dirname, '../backend/analyzeMeal/analysis.js'), 'utf8');
+  const handlerSrc = fs.readFileSync(path.join(__dirname, '../backend/analyzeMeal/index.js'), 'utf8');
+  assert.match(handlerSrc, /@google\/genai/);
+  assert.match(src, /gemini-3\.5-flash-lite/);
   const handler = require('../backend/analyzeMeal/index.js');
   assert.equal(typeof handler.analyzeMeal, 'function');
+  assert.equal(handler.MODEL_NAME, 'gemini-3.5-flash-lite');
 });
 

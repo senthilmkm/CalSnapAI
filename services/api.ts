@@ -3,6 +3,7 @@ import Purchases from 'react-native-purchases';
 import { MealRecord } from '../types/nutrition';
 import { useAppStore } from './storage';
 import pricingConfig from '../config/pricing.json';
+import { interpretMealResponse, SNAP_WAIT_MS } from './mealRead';
 
 const GCLOUD_FUNCTION_URL = 'https://us-central1-calsnap-ai-app.cloudfunctions.net/analyzeMeal';
 const CALSNAP_APP_SECRET = 'calsnap_sec_9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e';
@@ -127,13 +128,15 @@ export async function analyzeMealImage(params: AnalyzeMealParams): Promise<Omit<
     );
   }
 
-  // 2. Production Cloud Backend Function (Calls GCloud Function proxying Gemini 2.0 Flash)
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), SNAP_WAIT_MS);
   try {
     const appUserId = await getClientAppUserId();
     const authToken = params.userAuthToken || `calsnap-token-${appUserId}`;
 
     const response = await fetch(GCLOUD_FUNCTION_URL, {
       method: 'POST',
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${authToken}`,
@@ -151,138 +154,49 @@ export async function analyzeMealImage(params: AnalyzeMealParams): Promise<Omit<
       }),
     });
 
-    if (response.status === 429) {
+    const body = response.ok ? await response.json() : null;
+    const outcome = interpretMealResponse(response.status, body);
+    if (outcome.type === 'quota') {
       throw new Error('QUOTA_EXCEEDED');
     }
-
-    if (response.ok) {
-      const json = await response.json();
-      if (json.success && json.data) {
-        const { items, baseCals, baseProtein, baseCarbs, baseFat } = resolveBaseNutrition(json.data);
-
-        let oilGrams = Number(json.data.estimated_oil_g) || 0;
-        if (params.cookingStyle === 'raw') oilGrams = 0;
-        else if (params.cookingStyle === 'heavy') oilGrams = Math.max(oilGrams, 15);
-        else if (params.cookingStyle === 'light' && oilGrams > 0) oilGrams = 5;
-
-        const totalCals = baseCals + (oilGrams * 9);
-        const totalFat = baseFat + oilGrams;
-
-        return {
-          dish_name: json.data.dish_name || 'Identified Meal',
-          meal_type: getMealTypeByHour(),
-          items: items,
-          estimated_oil_g: oilGrams,
-          portion_multiplier: 1.0,
-          total_calories: totalCals,
-          total_protein_g: Number(baseProtein.toFixed(1)),
-          total_carbs_g: Number(baseCarbs.toFixed(1)),
-          total_fat_g: Number(totalFat.toFixed(1)),
-          glucose_impact_score: json.data.glucose_impact_score || 'LOW',
-          energy_crash_risk: json.data.energy_crash_risk || 'VERY_LOW',
-          ai_tip: json.data.ai_tip || 'Balanced nutrition profile.',
-          voice_transcript: params.voiceTranscript,
-        };
-      }
+    if (outcome.type !== 'meal') {
+      throw new Error('MEAL_READ_FAILED');
     }
+
+    const meal = outcome.data;
+    const { items, baseCals, baseProtein, baseCarbs, baseFat } = resolveBaseNutrition(meal);
+
+    let oilGrams = Number(meal.estimated_oil_g) || 0;
+    if (params.cookingStyle === 'raw') oilGrams = 0;
+    else if (params.cookingStyle === 'heavy') oilGrams = Math.max(oilGrams, 15);
+    else if (params.cookingStyle === 'light' && oilGrams > 0) oilGrams = 5;
+
+    const totalCals = baseCals + (oilGrams * 9);
+    const totalFat = baseFat + oilGrams;
+
+    return {
+      dish_name: meal.dish_name || 'Identified Meal',
+      meal_type: getMealTypeByHour(),
+      items: items,
+      estimated_oil_g: oilGrams,
+      portion_multiplier: 1.0,
+      total_calories: totalCals,
+      total_protein_g: Number(baseProtein.toFixed(1)),
+      total_carbs_g: Number(baseCarbs.toFixed(1)),
+      total_fat_g: Number(totalFat.toFixed(1)),
+      glucose_impact_score: meal.glucose_impact_score || 'LOW',
+      energy_crash_risk: meal.energy_crash_risk || 'VERY_LOW',
+      ai_tip: meal.ai_tip || 'Balanced nutrition profile.',
+      voice_transcript: params.voiceTranscript,
+    };
   } catch (err: any) {
     if (err?.message === 'QUOTA_EXCEEDED') {
       throw err;
     }
-    console.warn('Backend API offline or unreachable. Falling back to local smart simulation.', err);
+    throw new Error('MEAL_READ_FAILED');
+  } finally {
+    clearTimeout(timer);
   }
-
-  // 3. Smart Simulation Fallback (Ensures 100% offline uptime)
-  await new Promise((resolve) => setTimeout(resolve, 200));
-
-  const transcript = (params.voiceTranscript || '').toLowerCase();
-
-  const mockDishes = [
-    {
-      keywords: ['banana', 'fruit'],
-      dish: 'Fresh Yellow Banana',
-      items: [
-        { id: '1', name: 'Fresh Medium Banana (118g)', weight_g: 118, calories: 105, protein_g: 1.3, carbs_g: 27, fat_g: 0.3 },
-      ],
-      oil: 0,
-      cals: 105,
-      p: 1.3,
-      c: 27,
-      f: 0.3,
-      glucose: 'LOW' as const,
-      crash: 'VERY_LOW' as const,
-      tip: 'Great source of natural potassium and quick energy before or after a workout!',
-    },
-    {
-      keywords: ['apple', 'fruit', 'snack'],
-      dish: 'Fresh Red Apple & Raw Almonds',
-      items: [
-        { id: '1', name: 'Fresh Gala Apple', weight_g: 150, calories: 95, protein_g: 0.5, carbs_g: 25, fat_g: 0.3 },
-        { id: '2', name: 'Raw Almonds (15g)', weight_g: 15, calories: 85, protein_g: 3.2, carbs_g: 3, fat_g: 7.5 },
-      ],
-      oil: 0,
-      cals: 180,
-      p: 3.7,
-      c: 28,
-      f: 7.8,
-      glucose: 'LOW' as const,
-      crash: 'VERY_LOW' as const,
-      tip: 'High fiber with healthy monounsaturated fats. Stabilizes blood sugar.',
-    },
-    {
-      keywords: ['chicken', 'rice', 'broccoli'],
-      dish: 'Chicken Breast, Brown Rice & Broccoli',
-      items: [
-        { id: '1', name: 'Grilled Chicken Breast', weight_g: 150, calories: 248, protein_g: 46, carbs_g: 0, fat_g: 5 },
-        { id: '2', name: 'Steamed Brown Rice', weight_g: 120, calories: 140, protein_g: 3, carbs_g: 30, fat_g: 1 },
-        { id: '3', name: 'Steamed Broccoli florets', weight_g: 100, calories: 35, protein_g: 3, carbs_g: 7, fat_g: 0 },
-      ],
-      oil: 8,
-      cals: 495,
-      p: 52,
-      c: 37,
-      f: 14,
-      glucose: 'LOW' as const,
-      crash: 'VERY_LOW' as const,
-      tip: 'High lean protein with complex carbs! Keeps your focus sharp all afternoon.',
-    },
-    {
-      keywords: ['dal', 'chawal', 'rice', 'egg', 'bhurji', 'curry', 'indian'],
-      dish: 'Dal Chawal with Egg Bhurji',
-      items: [
-        { id: '1', name: 'Steamed Rice (~150g)', weight_g: 150, calories: 205, protein_g: 4.2, carbs_g: 45.0, fat_g: 0.5 },
-        { id: '2', name: 'Homestyle Dal (~120g)', weight_g: 120, calories: 135, protein_g: 7.5, carbs_g: 18.0, fat_g: 3.5 },
-        { id: '3', name: 'Egg Bhurji / Scrambled (2 Eggs, ~100g)', weight_g: 100, calories: 155, protein_g: 13.0, carbs_g: 2.0, fat_g: 11.0 },
-      ],
-      oil: 5,
-      cals: 540,
-      p: 24.7,
-      c: 65.0,
-      f: 20.0,
-      glucose: 'LOW' as const,
-      crash: 'VERY_LOW' as const,
-      tip: 'Balanced complete meal with high dietary fiber and 24g of complete protein!',
-    },
-  ];
-
-  const matched = mockDishes.find((d) => d.keywords.some((k) => transcript.includes(k)));
-  const choice = matched || mockDishes[Math.floor(Math.random() * mockDishes.length)];
-
-  return {
-    dish_name: choice.dish,
-    meal_type: getMealTypeByHour(),
-    items: choice.items,
-    estimated_oil_g: choice.oil,
-    portion_multiplier: 1.0,
-    total_calories: choice.cals,
-    total_protein_g: choice.p,
-    total_carbs_g: choice.c,
-    total_fat_g: choice.f,
-    glucose_impact_score: choice.glucose,
-    energy_crash_risk: choice.crash,
-    ai_tip: choice.tip,
-    voice_transcript: params.voiceTranscript,
-  };
 }
 
 function getMealTypeByHour(): 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack' {
